@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Opulent Buyer Journey</title>
+<style>
+  :root{
+    --black:#0a0a0a;
+    --green:#2BBE6E;
+    --green-dim:#1e8f52;
+    --white:#ffffff;
+    --grey:#9a9a9a;
+    --card:#161616;
+    --card2:#1f1f1f;
+    --danger:#e05252;
+    --warn:#e0b34d;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--black);
+    color:var(--white);
+    font-family:'Josefin Sans', 'Space Grotesk', Segoe UI, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.brand{
+    font-family:'Cinzel', Georgia, serif;
+    letter-spacing:0.5px;
+  }
+  #app{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    background:var(--black);
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    border-left:1px solid #222;
+    border-right:1px solid #222;
+  }
+  header.topbar{
+    padding:18px 16px 14px;
+    border-bottom:1px solid #222;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    position:sticky;
+    top:0;
+    background:var(--black);
+    z-index:10;
+  }
+  header.topbar .brand{
+    color:var(--green);
+    font-size:15px;
+    text-transform:uppercase;
+  }
+  header.topbar h1{
+    font-size:19px;
+    margin:2px 0 0;
+    color:var(--white);
+    font-weight:600;
+  }
+  .backbtn{
+    background:none;
+    border:1px solid #333;
+    color:var(--white);
+    border-radius:8px;
+    padding:6px 10px;
+    font-size:13px;
+    cursor:pointer;
+  }
+  main{
+    flex:1;
+    padding:16px;
+    padding-bottom:90px;
+    overflow-y:auto;
+  }
+  nav.bottomnav{
+    position:sticky;
+    bottom:0;
+    background:#0d0d0d;
+    border-top:1px solid #222;
+    display:flex;
+    justify-content:space-around;
+    padding:8px 4px 10px;
+    z-index:10;
+  }
+  nav.bottomnav button{
+    background:none;
+    border:none;
+    color:var(--grey);
+    font-size:10px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:3px;
+    cursor:pointer;
+    font-family:'Josefin Sans',sans-serif;
+    padding:2px 4px;
+  }
+  nav.bottomnav button .ic{font-size:18px;}
+  nav.bottomnav button.active{color:var(--green);}
+  .card{
+    background:var(--card);
+    border:1px solid #262626;
+    border-radius:14px;
+    padding:14px;
+    margin-bottom:14px;
+  }
+  .card h3{margin:0 0 8px;font-size:15px;color:var(--white);}
+  .muted{color:var(--grey);font-size:12.5px;}
+  .row{display:flex;gap:10px;}
+  .row > *{flex:1;}
+  .btn{
+    background:var(--green);
+    color:#06210f;
+    border:none;
+    border-radius:10px;
+    padding:11px 14px;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    font-family:'Josefin Sans',sans-serif;
+    width:100%;
+  }
+  .btn.secondary{
+    background:transparent;
+    color:var(--green);
+    border:1px solid var(--green-dim);
+  }
+  .btn.ghost{
+    background:transparent;
+    color:var(--white);
+    border:1px solid #333;
+  }
+  .btn.small{width:auto;padding:7px 10px;font-size:12px;}
+  .btn.danger{background:var(--danger);color:#fff;}
+  input,textarea,select{
+    width:100%;
+    background:#0f0f0f;
+    border:1px solid #2a2a2a;
+    color:var(--white);
+    border-radius:8px;
+    padding:10px;
+    font-size:14px;
+    font-family:'Josefin Sans',sans-serif;
+    margin-bottom:10px;
+  }
+  label{font-size:12px;color:var(--grey);display:block;margin-bottom:4px;}
+  .pill{
+    display:inline-block;
+    padding:3px 10px;
+    border-radius:20px;
+    font-size:11px;
+    font-weight:600;
+    margin:2px 4px 2px 0;
+  }
+  .pill.pro{background:rgba(43,190,110,0.15);color:var(--green);border:1px solid var(--green-dim);}
+  .pill.con{background:rgba(224,82,82,0.15);color:var(--danger);border:1px solid #6b2727;}
+  .chip{
+    display:inline-block;
+    padding:6px 10px;
+    border-radius:20px;
+    font-size:12px;
+    border:1px solid #333;
+    color:var(--grey);
+    margin:3px 4px 3px 0;
+    cursor:pointer;
+    background:#111;
+  }
+  .chip.selected{background:var(--green);color:#06210f;border-color:var(--green);font-weight:600;}
+  .score-badge{
+    width:44px;height:44px;border-radius:50%;
+    background:var(--green);color:#06210f;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:16px;flex-shrink:0;
+    font-family:'Space Grotesk',sans-serif;
+  }
+  .score-badge.empty{background:#222;color:var(--grey);}
+  .thumb-row{display:flex;gap:8px;overflow-x:auto;padding:4px 0;}
+  .thumb{
+    width:74px;height:74px;border-radius:10px;object-fit:cover;
+    border:1px solid #262626;flex-shrink:0;background:#111;
+  }
+  .home-row{
+    display:flex;gap:12px;align-items:center;
+    padding:10px 0;border-bottom:1px solid #1e1e1e;cursor:pointer;
+  }
+  .home-row:last-child{border-bottom:none;}
+  .home-row img.thumb{width:56px;height:56px;}
+  .home-row .info{flex:1;min-width:0;}
+  .home-row .addr{font-size:14px;font-weight:600;}
+  .home-row .sub{font-size:12px;color:var(--grey);}
+  .status-track{display:flex;gap:4px;margin:10px 0;}
+  .status-track .seg{flex:1;height:6px;border-radius:3px;background:#252525;}
+  .status-track .seg.done{background:var(--green);}
+  .status-track .seg.current{background:var(--warn);}
+  .empty-state{text-align:center;padding:40px 12px;color:var(--grey);}
+  .empty-state .ic{font-size:34px;margin-bottom:10px;}
+  .slider-wrap{display:flex;align-items:center;gap:12px;}
+  input[type=range]{
+    -webkit-appearance:none;height:6px;border-radius:3px;
+    background:linear-gradient(90deg,var(--green) 0%,var(--green) var(--pct,50%),#262626 var(--pct,50%),#262626 100%);
+    margin-bottom:0;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:20px;height:20px;border-radius:50%;
+    background:var(--white);border:3px solid var(--green);cursor:pointer;
+  }
+  .toggle{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #1e1e1e;}
+  .switch{
+    width:42px;height:24px;background:#2a2a2a;border-radius:20px;position:relative;cursor:pointer;flex-shrink:0;
+  }
+  .switch.on{background:var(--green);}
+  .switch .knob{
+    width:18px;height:18px;background:#fff;border-radius:50%;position:absolute;top:3px;left:3px;transition:.15s;
+  }
+  .switch.on .knob{left:21px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .compare-grid{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;}
+  .compare-col{
+    min-width:180px;background:var(--card2);border-radius:12px;padding:10px;border:1px solid #262626;
+  }
+  .compare-col img{width:100%;height:100px;object-fit:cover;border-radius:8px;margin-bottom:6px;}
+  .compare-col .lbl{font-size:10px;color:var(--grey);text-transform:uppercase;margin-top:8px;}
+  .compare-col .val{font-size:13px;font-weight:600;}
+  .fav-rank{
+    display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1e1e1e;
+  }
+  .fav-rank .num{
+    width:26px;height:26px;border-radius:50%;background:#222;color:var(--green);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;
+  }
+  .fav-rank .arrows{display:flex;flex-direction:column;gap:2px;}
+  .fav-rank .arrows button{background:none;border:none;color:var(--grey);cursor:pointer;font-size:12px;padding:2px;}
+  .voice-item{
+    display:flex;align-items:center;gap:10px;background:var(--card2);border-radius:10px;padding:10px;margin-bottom:8px;
+  }
+  .voice-item .dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;}
+  .doc-item{
+    display:flex;align-items:center;justify-content:space-between;background:var(--card2);
+    border-radius:10px;padding:10px 12px;margin-bottom:8px;
+  }
+  .tabbar{display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid #222;}
+  .tabbar button{
+    background:none;border:none;color:var(--grey);padding:10px 4px;font-size:13px;cursor:pointer;
+    border-bottom:2px solid transparent;font-family:'Josefin Sans',sans-serif;
+  }
+  .tabbar button.active{color:var(--green);border-color:var(--green);font-weight:600;}
+  .fab{
+    position:fixed;
+    bottom:96px;
+    right:calc(50% - 240px + 16px);
+    width:52px;height:52px;border-radius:50%;
+    background:var(--green);color:#06210f;border:none;
+    font-size:26px;box-shadow:0 4px 14px rgba(0,0,0,.5);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;z-index:20;
+  }
+  @media (max-width:520px){
+    .fab{right:16px;}
+  }
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:50;
+    display:flex;align-items:flex-end;justify-content:center;
+  }
+  .modal{
+    background:#111;border-top-left-radius:18px;border-top-right-radius:18px;
+    padding:20px 16px 26px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;
+    border-top:1px solid #2a2a2a;
+  }
+  .modal h3{margin-top:0;}
+  .closex{float:right;background:none;border:none;color:var(--grey);font-size:20px;cursor:pointer;}
+  .banner-share{
+    background:linear-gradient(135deg,rgba(43,190,110,.15),rgba(43,190,110,.03));
+    border:1px solid var(--green-dim);border-radius:12px;padding:12px 14px;margin-bottom:14px;
+    font-size:12.5px;
+  }
+  ::-webkit-scrollbar{height:6px;width:6px;}
+  ::-webkit-scrollbar-thumb{background:#333;border-radius:3px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div>
+      <div class="brand">OPULENT REALTY GROUP <span id="syncDot" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#666;margin-left:4px;"></span></div>
+      <h1 id="pageTitle">Dashboard</h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="backbtn" id="backBtn" style="display:none">← Back</button>
+      <button class="backbtn" id="agentModeBtn" style="border-color:#333;">Agent Mode: Off</button>
+    </div>
+  </header>
+  <main id="main"></main>
+  <button class="fab" id="fab" style="display:none">+</button>
+  <nav class="bottomnav">
+    <button data-view="dashboard"><span class="ic">🏠</span>Home</button>
+    <button data-view="schedule"><span class="ic">📅</span>Tours</button>
+    <button data-view="favorites"><span class="ic">⭐</span>Favorites</button>
+    <button data-view="compare"><span class="ic">⚖️</span>Compare</button>
+    <button data-view="agent"><span class="ic">🤝</span>Agent</button>
+  </nav>
+</div>
+<div id="modalRoot"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+/* ============ DATA LAYER (Supabase-backed, real-time synced) ============ */
+const SUPABASE_URL = 'https://oiszuqcimrciypmuzkdt.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_pFtPwv81osfU119QgAJnPQ_0mwkEH85';
+const ROW_ID = 'thornton-tour';
+const DB_KEY = 'opulent_buyer_app_v2'; // used only as an offline fallback cache
+
+let sb = null;
+try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }catch(e){ console.warn('Supabase client failed to init', e); }
+
+let syncStatus = 'connecting'; // connecting | live | offline
+
+function seedDB(){
+  const seed = {
+    // NOTE: no client PII is hardcoded here on purpose — this file is publicly hosted.
+    // Real buyer/partner contact info is seeded directly into Supabase (see setup SQL) and
+    // loaded at runtime, never shipped in this source.
+    profile:{
+      buyerName:'', buyerEmail:'', buyerPhone:'',
+      partnerName:'', partnerEmail:'', partnerPhone:'',
+      agentName:'Keenan D. Washington, Sr.', agentEmail:'kdwmba@gmail.com'
+    },
+    properties: [
+      {
+        id:'p1', address:'7931 Jenkintown Rd', city:'Cheltenham, PA 19012', price:599900, beds:4, baths:3.5, sqft:2494, mls:'PAMC2175360',
+        showingDate:'2026-08-06T15:45', durationMinutes:15, checkedIn:false,
+        photos:[], subScores:{}, ratings:{}, prosCons:[], voiceNotes:[],
+        favorite:false, rank:null,
+        offerStatus:null, offerHistory:[], offerTerms:{}, documents:[], agentNotes:'', sharedWithAgent:false
+      },
+      {
+        id:'p2', address:'349 Rettop Place', city:'Warminster, PA 18974', price:549900, beds:5, baths:2.5, sqft:1887, mls:'PABU2127928',
+        showingDate:'2026-08-06T16:30', durationMinutes:15, checkedIn:false,
+        photos:[], subScores:{}, ratings:{}, prosCons:[], voiceNotes:[],
+        favorite:false, rank:null,
+        offerStatus:null, offerHistory:[], offerTerms:{}, documents:[], agentNotes:'', sharedWithAgent:false
+      },
+      {
+        id:'p3', address:'1008 Pioneer Rd', city:'Lansdale, PA 19446', price:499000, beds:4, baths:2, sqft:1741, mls:'PAMC2187718',
+        showingDate:'2026-08-06T17:15', durationMinutes:null, checkedIn:false,
+        photos:[], subScores:{}, ratings:{}, prosCons:[], voiceNotes:[],
+        favorite:false, rank:null,
+        offerStatus:null, offerHistory:[], offerTerms:{}, documents:[], agentNotes:'', sharedWithAgent:false
+      }
+    ]
+  };
+  return seed;
+}
+
+let DB = null;
+
+async function initDB(){
+  // offline-first: paint immediately from local cache (or seed) while we reach out to Supabase
+  const cached = localStorage.getItem(DB_KEY);
+  DB = cached ? JSON.parse(cached) : seedDB();
+  render();
+
+  if(!sb) return;
+  try{
+    const { data, error } = await sb.from('buyer_app_state').select('data').eq('id', ROW_ID).maybeSingle();
+    if(error) throw error;
+    if(data && data.data){
+      DB = data.data;
+    } else {
+      // no shared row yet — create it from our seed/cache so every device converges on the same state
+      const { error: insertErr } = await sb.from('buyer_app_state').insert({ id: ROW_ID, data: DB });
+      if(insertErr) throw insertErr;
+    }
+    localStorage.setItem(DB_KEY, JSON.stringify(DB));
+    syncStatus = 'live';
+    subscribeRealtime();
+  } catch(e){
+    console.warn('Supabase unavailable, staying in offline mode', e);
+    syncStatus = 'offline';
+  }
+  render();
+}
+
+function subscribeRealtime(){
+  if(!sb) return;
+  sb.channel('buyer_app_state_changes')
+    .on('postgres_changes', { event:'*', schema:'public', table:'buyer_app_state', filter:`id=eq.${ROW_ID}` }, (payload)=>{
+      if(payload.new && payload.new.data){
+        DB = payload.new.data;
+        localStorage.setItem(DB_KEY, JSON.stringify(DB));
+        render();
+      }
+    })
+    .subscribe((status)=>{
+      syncStatus = (status === 'SUBSCRIBED') ? 'live' : syncStatus;
+      render();
+    });
+}
+
+function save(){
+  localStorage.setItem(DB_KEY, JSON.stringify(DB));
+  if(sb){
+    sb.from('buyer_app_state')
+      .update({ data: DB, updated_at: new Date().toISOString() })
+      .eq('id', ROW_ID)
+      .then(({error})=>{ if(error){ console.warn('Sync failed, saved locally only', error); syncStatus='offline'; render(); } });
+  }
+}
+function getProp(id){ return DB.properties.find(p=>p.id===id); }
+function uid(){ return 'p'+Math.random().toString(36).slice(2,9); }
+
+/* ============ ROUTER ============ */
+let state = { view:'dashboard', propId:null, compareIds:[], agentMode:false };
+
+function go(view, opts={}){
+  state.view = view;
+  Object.assign(state, opts);
+  render();
+}
+
+document.querySelectorAll('.bottomnav button').forEach(btn=>{
+  btn.addEventListener('click', ()=> go(btn.dataset.view));
+});
+document.getElementById('backBtn').addEventListener('click', ()=> go('dashboard'));
+document.getElementById('agentModeBtn').addEventListener('click', ()=>{
+  state.agentMode = !state.agentMode;
+  render();
+});
+
+/* ============ HELPERS ============ */
+function fmtPrice(n){ return n ? '$'+n.toLocaleString() : '—'; }
+function fmtDate(d){
+  if(!d) return '';
+  const dt = new Date(d);
+  return dt.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' · ' + dt.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+}
+function fmtShowing(p){
+  return fmtDate(p.showingDate) + (p.durationMinutes ? ' (' + p.durationMinutes + ' min)' : '');
+}
+function scoreColor(s){ return s>=8?'var(--green)': s>=5?'var(--warn)':'var(--danger)'; }
+function el(html){ const d=document.createElement('div'); d.innerHTML=html.trim(); return d.firstChild; }
+function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
+function openModal(html){
+  document.getElementById('modalRoot').innerHTML =
+    `<div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal">${html}</div></div>`;
+}
+
+/* ============ RENDER: SHELL ============ */
+function render(){
+  document.querySelectorAll('.bottomnav button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.view===state.view);
+  });
+  document.getElementById('backBtn').style.display = state.view==='home'||state.view==='addShowing' ? 'block':'none';
+  const fab = document.getElementById('fab');
+  fab.style.display = (state.view==='schedule') ? 'flex' : 'none';
+  fab.onclick = ()=> openAddShowing();
+
+  const syncDot = document.getElementById('syncDot');
+  if(syncDot){
+    syncDot.style.background = syncStatus==='live' ? 'var(--green)' : syncStatus==='connecting' ? '#e0b34d' : '#e05252';
+    syncDot.title = syncStatus==='live' ? 'Synced live' : syncStatus==='connecting' ? 'Connecting…' : 'Offline — changes saved on this device only';
+  }
+  const agentBtn = document.getElementById('agentModeBtn');
+  agentBtn.textContent = 'Agent Mode: ' + (state.agentMode ? 'On' : 'Off');
+  agentBtn.style.background = state.agentMode ? 'var(--green)' : 'none';
+  agentBtn.style.color = state.agentMode ? '#06210f' : 'var(--white)';
+  agentBtn.style.borderColor = state.agentMode ? 'var(--green)' : '#333';
+  agentBtn.style.fontWeight = state.agentMode ? '700' : '400';
+
+  const titles = {dashboard:'Dashboard', schedule:'Tour Schedule', favorites:'Favorites', compare:'Compare Homes', agent:'Agent Share', home:'Home Detail'};
+  document.getElementById('pageTitle').textContent = titles[state.view] || 'Opulent Buyer Journey';
+
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+  const renderers = { dashboard:renderDashboard, schedule:renderSchedule, favorites:renderFavorites, compare:renderCompare, agent:renderAgent, home:renderHome };
+  (renderers[state.view]||renderDashboard)(main);
+}
+
+/* ============ DASHBOARD ============ */
+function renderDashboard(main){
+  const upcoming = DB.properties.filter(p=>!p.checkedIn).sort((a,b)=> new Date(a.showingDate)-new Date(b.showingDate));
+  const active = DB.properties.filter(p=>p.checkedIn);
+  const offersInProgress = DB.properties.filter(p=>p.offerStatus && p.offerStatus!=='Accepted' && p.offerStatus!=='Rejected' && p.offerStatus!=='Withdrawn');
+
+  main.appendChild(el(`
+    <div class="card">
+      <div class="row">
+        <div><div class="muted">Homes toured</div><h2 style="margin:2px 0;color:var(--green);">${active.length}</h2></div>
+        <div><div class="muted">Favorites</div><h2 style="margin:2px 0;color:var(--green);">${DB.properties.filter(p=>p.favorite).length}</h2></div>
+        <div><div class="muted">Active offers</div><h2 style="margin:2px 0;color:var(--green);">${offersInProgress.length}</h2></div>
+      </div>
+    </div>
+  `));
+
+  if(upcoming.length){
+    main.appendChild(el(`<div class="card"><h3>Next Showing</h3>
+      <div class="home-row" data-id="${upcoming[0].id}">
+        <img class="thumb" src="${thumbFor(upcoming[0])}">
+        <div class="info">
+          <div class="addr">${upcoming[0].address}</div>
+          <div class="sub">${fmtPrice(upcoming[0].price)} · ${upcoming[0].beds||'–'}bd/${upcoming[0].baths||'–'}ba · ${upcoming[0].sqft?upcoming[0].sqft.toLocaleString()+' sqft':'–'}</div>
+          <div class="sub">${fmtShowing(upcoming[0])}</div>
+        </div>
+        <button class="btn small" data-checkin="${upcoming[0].id}">Check In</button>
+      </div>
+    </div>`));
+  }
+
+  if(offersInProgress.length){
+    main.appendChild(el(`<div class="card"><h3>Offers In Progress</h3>${offersInProgress.map(p=>`
+      <div class="home-row" data-id="${p.id}">
+        <img class="thumb" src="${thumbFor(p)}">
+        <div class="info"><div class="addr">${p.address}</div><div class="sub">${p.offerStatus}</div></div>
+      </div>`).join('')}</div>`));
+  }
+
+  main.appendChild(el(`<div class="card"><h3>Recently Toured</h3>${
+    active.length ? active.map(p=>homeRowHTML(p)).join('') : `<div class="muted">No showings checked in yet.</div>`
+  }</div>`));
+
+  bindHomeRows(main);
+  main.querySelectorAll('[data-checkin]').forEach(b=>{
+    b.addEventListener('click',(e)=>{ e.stopPropagation(); checkIn(b.dataset.checkin); });
+  });
+}
+
+function thumbFor(p){
+  if(p.photos && p.photos.length) return p.photos[0];
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="#161616"/><text x="50%" y="50%" fill="#2BBE6E" font-size="26" text-anchor="middle" dy=".3em" font-family="sans-serif">🏡</text></svg>`);
+}
+
+function homeRowHTML(p){
+  const score = p.ratings && p.ratings.primary;
+  return `<div class="home-row" data-id="${p.id}">
+    <img class="thumb" src="${thumbFor(p)}">
+    <div class="info">
+      <div class="addr">${p.address}</div>
+      <div class="sub">${fmtPrice(p.price)} · ${p.beds}bd/${p.baths}ba · ${p.sqft?p.sqft.toLocaleString()+' sqft':''}</div>
+    </div>
+    <div class="score-badge ${score?'':'empty'}" style="${score?`background:${scoreColor(score)};color:#06210f;`:''}">${score||'–'}</div>
+  </div>`;
+}
+
+function bindHomeRows(root){
+  root.querySelectorAll('.home-row[data-id]').forEach(row=>{
+    row.addEventListener('click', ()=> go('home', {propId: row.dataset.id}));
+  });
+}
+
+function checkIn(id){
+  const p = getProp(id);
+  p.checkedIn = true;
+  save();
+  go('home', {propId:id});
+}
+
+/* ============ SCHEDULE ============ */
+function renderSchedule(main){
+  if(state.agentMode){
+    main.appendChild(el(`<div class="banner-share">Agent Mode is on — you can edit showing times and add homes to ${DB.profile.buyerName.split(' ')[0]}'s schedule.</div>`));
+  }
+  const sorted = [...DB.properties].sort((a,b)=> new Date(a.showingDate)-new Date(b.showingDate));
+  main.appendChild(el(`<div class="card"><h3>Full Tour Schedule</h3>${
+    sorted.map(p=>`
+      <div class="home-row" data-id="${p.id}">
+        <img class="thumb" src="${thumbFor(p)}">
+        <div class="info">
+          <div class="addr">${p.address}</div>
+          <div class="sub">${fmtPrice(p.price)} · ${p.beds||'–'}bd/${p.baths||'–'}ba · ${p.sqft?p.sqft.toLocaleString()+' sqft':'–'}</div>
+          <div class="sub">${fmtShowing(p)} ${p.checkedIn?'· <span style="color:var(--green)">Checked in</span>':''}</div>
+        </div>
+        ${state.agentMode ? `<button class="btn small ghost" data-edittime="${p.id}">Edit</button>` : ''}
+        ${!p.checkedIn ? `<button class="btn small" data-checkin="${p.id}">Check In</button>` : ''}
+      </div>`).join('')
+  }</div>`));
+  bindHomeRows(main);
+  main.querySelectorAll('[data-checkin]').forEach(b=>{
+    b.addEventListener('click',(e)=>{ e.stopPropagation(); checkIn(b.dataset.checkin); });
+  });
+  main.querySelectorAll('[data-edittime]').forEach(b=>{
+    b.addEventListener('click',(e)=>{ e.stopPropagation(); openEditTime(b.dataset.edittime); });
+  });
+}
+
+function openEditTime(id){
+  const p = getProp(id);
+  openModal(`
+    <button class="closex" onclick="closeModal()">✕</button>
+    <h3>Edit Appointment — ${p.address}</h3>
+    <label>Showing Date/Time</label><input id="eDate" type="datetime-local" value="${p.showingDate ? p.showingDate.slice(0,16) : ''}">
+    <label>Duration (minutes)</label><input id="eDuration" type="number" value="${p.durationMinutes||''}" placeholder="15">
+    <button class="btn" id="eSave">Save Changes</button>
+  `);
+  document.getElementById('eSave').addEventListener('click', ()=>{
+    p.showingDate = document.getElementById('eDate').value || p.showingDate;
+    p.durationMinutes = Number(document.getElementById('eDuration').value)||null;
+    save(); closeModal(); render();
+  });
+}
+
+function openAddShowing(){
+  openModal(`
+    <button class="closex" onclick="closeModal()">✕</button>
+    <h3>Add Showing</h3>
+    <label>Address</label><input id="nAddr" placeholder="123 Main St">
+    <label>City / State</label><input id="nCity" placeholder="Philadelphia, PA">
+    <div class="row">
+      <div><label>Price</label><input id="nPrice" type="number" placeholder="425000"></div>
+      <div><label>MLS #</label><input id="nMls" placeholder="PA10298..."></div>
+    </div>
+    <div class="row">
+      <div><label>Beds</label><input id="nBeds" type="number" placeholder="3"></div>
+      <div><label>Baths</label><input id="nBaths" type="number" placeholder="2"></div>
+      <div><label>Sqft</label><input id="nSqft" type="number" placeholder="1800"></div>
+    </div>
+    <label>Showing Date/Time</label><input id="nDate" type="datetime-local">
+    <button class="btn" id="saveShowing">Add to Schedule</button>
+  `);
+  document.getElementById('saveShowing').addEventListener('click', ()=>{
+    const addr = document.getElementById('nAddr').value.trim();
+    if(!addr){ alert('Address is required'); return; }
+    const p = {
+      id:uid(), address:addr, city:document.getElementById('nCity').value,
+      price:Number(document.getElementById('nPrice').value)||null,
+      mls:document.getElementById('nMls').value,
+      beds:Number(document.getElementById('nBeds').value)||null,
+      baths:Number(document.getElementById('nBaths').value)||null,
+      sqft:Number(document.getElementById('nSqft').value)||null,
+      showingDate: document.getElementById('nDate').value || new Date().toISOString(),
+      checkedIn:false, photos:[], subScores:{}, ratings:{}, prosCons:[], voiceNotes:[],
+      favorite:false, rank:null, offerStatus:null, offerHistory:[], offerTerms:{}, documents:[], sharedWithAgent:false
+    };
+    DB.properties.push(p);
+    save();
+    closeModal();
+    go('schedule');
+  });
+}
+
+/* ============ HOME DETAIL ============ */
+const PRO_CHIPS = ['Updated kitchen','Great natural light','Great yard','Move-in ready','Good schools','Quiet street','Storage/closets','Garage'];
+const CON_CHIPS = ['Busy street','Needs updating','Small closets','Small backyard','No garage','Old roof','HOA fees','Noisy neighbors'];
+
+function renderHome(main){
+  const p = getProp(state.propId);
+  if(!p){ main.appendChild(el(`<div class="empty-state">Home not found.</div>`)); return; }
+
+  main.appendChild(el(`
+    <div class="card">
+      <div class="row" style="align-items:flex-start;">
+        <div>
+          <h3 style="margin-bottom:2px;">${p.address}</h3>
+          <div class="muted">${p.city||''}</div>
+          <div class="muted">${fmtPrice(p.price)} · ${p.beds||'–'}bd/${p.baths||'–'}ba · ${p.sqft?p.sqft.toLocaleString():'–'} sqft</div>
+          <div class="muted">MLS# ${p.mls||'—'} · ${fmtShowing(p)}</div>
+        </div>
+        <div class="score-badge ${p.ratings.primary?'':'empty'}" style="${p.ratings.primary?`background:${scoreColor(p.ratings.primary)};color:#06210f;`:''}">${p.ratings.primary||'–'}</div>
+      </div>
+      ${state.agentMode ? `<button class="btn ghost small" id="editTimeBtn" style="margin-top:10px;">Edit Appointment Time</button>` : ''}
+    </div>
+  `));
+
+  // Photos
+  main.appendChild(el(`
+    <div class="card">
+      <h3>Photos & Video</h3>
+      <div class="thumb-row" id="photoRow">
+        ${(p.photos||[]).map(src=>`<img class="thumb" src="${src}">`).join('')}
+        <label class="thumb" style="display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px dashed #333;font-size:22px;color:var(--green);">
+          +
+          <input type="file" accept="image/*,video/*" multiple style="display:none" id="photoInput">
+        </label>
+      </div>
+    </div>
+  `));
+
+  // Agent-only touring notes (never rendered unless Agent Mode is on — simulates agent-only visibility)
+  if(state.agentMode){
+    main.appendChild(el(`
+      <div class="card" style="border-color:var(--green-dim);">
+        <h3>🔒 Agent-Only Touring Notes</h3>
+        <div class="muted" style="margin-bottom:8px;">Never visible to the buyer. For your own reference — condition notes, seller agent conversations, strategy, etc.</div>
+        <textarea id="agentNotes" rows="4" placeholder="e.g. Seller motivated, will consider offers below list...">${p.agentNotes||''}</textarea>
+        <button class="btn secondary" id="saveAgentNotes">Save Notes</button>
+      </div>
+    `));
+  }
+
+  // Rating
+  main.appendChild(el(`
+    <div class="card">
+      <h3>Your Rating</h3>
+      <div class="slider-wrap">
+        <input type="range" min="1" max="10" value="${p.ratings.primary||5}" id="ratingSlider" style="--pct:${((p.ratings.primary||5)-1)/9*100}%">
+        <div class="score-badge" id="ratingBadge" style="background:${scoreColor(p.ratings.primary||5)};color:#06210f;">${p.ratings.primary||5}</div>
+      </div>
+      <div class="muted" style="margin-top:6px;">Gut reaction, 1–10. Locks in once submitted — you can still revise later.</div>
+      <div style="margin-top:10px;">
+        ${['location','condition','layout','light','value'].map(k=>`
+          <div class="row" style="align-items:center;margin-bottom:6px;">
+            <div style="flex:0 0 90px;font-size:12px;text-transform:capitalize;color:var(--grey);">${k}</div>
+            <input type="range" min="1" max="10" value="${p.subScores[k]||5}" data-sub="${k}" style="--pct:${((p.subScores[k]||5)-1)/9*100}%">
+          </div>`).join('')}
+      </div>
+      <button class="btn" id="saveRating" style="margin-top:8px;">Save Rating</button>
+      ${p.ratings.partner ? `<div class="muted" style="margin-top:10px;">Partner rating: <strong style="color:var(--white)">${p.ratings.partner}/10</strong></div>` : `<button class="btn secondary" id="addPartnerRating" style="margin-top:10px;">+ Add Partner Rating</button>`}
+    </div>
+  `));
+
+  // Pros/Cons
+  main.appendChild(el(`
+    <div class="card">
+      <h3>Pros & Cons</h3>
+      <div class="muted" style="margin-bottom:6px;">Tap to add, or type your own below.</div>
+      <div style="margin-bottom:10px;">
+        ${PRO_CHIPS.map(c=>`<span class="chip pro-chip ${p.prosCons.some(pc=>pc.type==='pro'&&pc.text===c)?'selected':''}" data-text="${c}">${c}</span>`).join('')}
+      </div>
+      <div>
+        ${CON_CHIPS.map(c=>`<span class="chip con-chip ${p.prosCons.some(pc=>pc.type==='con'&&pc.text===c)?'selected':''}" data-text="${c}">${c}</span>`).join('')}
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <input id="customTag" placeholder="Add your own...">
+        <button class="btn small" id="addPro" style="flex:0 0 70px;">Pro</button>
+        <button class="btn small danger" id="addCon" style="flex:0 0 70px;">Con</button>
+      </div>
+      <div style="margin-top:8px;">
+        ${p.prosCons.map((pc,i)=>`<span class="pill ${pc.type}">${pc.text} <span data-rm="${i}" style="cursor:pointer;">✕</span></span>`).join('')}
+      </div>
+    </div>
+  `));
+
+  // Voice notes
+  main.appendChild(el(`
+    <div class="card">
+      <h3>Voice Notes</h3>
+      ${(p.voiceNotes||[]).map(v=>`
+        <div class="voice-item"><span class="dot"></span>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;">${v.label}</div>
+            <div class="muted">${v.transcript||'(no transcript)'}</div>
+          </div>
+        </div>`).join('') || `<div class="muted" style="margin-bottom:8px;">No voice notes yet.</div>`}
+      <button class="btn secondary" id="addVoice">🎙️ Record Voice Note</button>
+    </div>
+  `));
+
+  // Favorite / rank
+  main.appendChild(el(`
+    <div class="card">
+      <div class="toggle">
+        <div><strong>Favorite this home</strong><div class="muted">Adds it to your ranked shortlist</div></div>
+        <div class="switch ${p.favorite?'on':''}" id="favSwitch"><div class="knob"></div></div>
+      </div>
+    </div>
+  `));
+
+  // Offer status
+  const stages = ['Interested','Offer Drafted','Offer Submitted','Countered','Accepted'];
+  const curIdx = p.offerStatus ? stages.indexOf(p.offerStatus) : -1;
+  main.appendChild(el(`
+    <div class="card">
+      <h3>Offer Status</h3>
+      <div class="status-track">
+        ${stages.map((s,i)=>`<div class="seg ${i<curIdx?'done':''} ${i===curIdx?'current':''}"></div>`).join('')}
+      </div>
+      <div class="muted">${p.offerStatus || 'No offer activity yet'}</div>
+      ${p.offerTerms && p.offerTerms.price ? `
+        <div class="grid2" style="margin-top:10px;">
+          <div><div class="muted">Offer price</div><div>${fmtPrice(p.offerTerms.price)}</div></div>
+          <div><div class="muted">Close date</div><div>${p.offerTerms.closeDate||'—'}</div></div>
+          <div><div class="muted">Earnest money</div><div>${fmtPrice(p.offerTerms.earnest)}</div></div>
+          <div><div class="muted">Contingencies</div><div>${p.offerTerms.contingencies||'—'}</div></div>
+        </div>` : ''}
+      <button class="btn secondary" id="advanceOffer" style="margin-top:10px;">${p.offerStatus ? 'Advance Status →' : 'Mark as Interested'}</button>
+    </div>
+  `));
+
+  // Documents
+  main.appendChild(el(`
+    <div class="card">
+      <h3>Disclosures & Documents</h3>
+      ${(p.documents||[]).map(d=>`
+        <div class="doc-item">
+          <div>📄 ${d.name}<div class="muted">${d.type} · added by ${d.addedBy||'Agent'}</div></div>
+          ${d.data ? `<a class="btn small ghost" href="${d.data}" download="${d.name}" style="width:auto;">Download</a>` : `<span class="muted">no file</span>`}
+        </div>`).join('') || `<div class="muted" style="margin-bottom:8px;">No documents uploaded yet.</div>`}
+      ${state.agentMode ? `
+        <label style="margin-top:6px;">Document type</label>
+        <select id="docType">
+          <option>Disclosure</option>
+          <option>Inspection Report</option>
+          <option>Appraisal</option>
+          <option>Other</option>
+        </select>
+        <label class="btn ghost" style="display:block;text-align:center;cursor:pointer;">
+          + Upload Document
+          <input type="file" id="docInput" style="display:none">
+        </label>
+      ` : `<div class="muted" style="margin-top:8px;">Only ${DB.profile.agentName} can upload documents here. Anything they add shows up for you to download.</div>`}
+    </div>
+  `));
+
+  // Share with agent
+  main.appendChild(el(`
+    <div class="card">
+      <div class="toggle" style="border:none;">
+        <div><strong>Share with agent</strong><div class="muted">${DB.profile.agentName} can see this home's activity live</div></div>
+        <div class="switch ${p.sharedWithAgent?'on':''}" id="shareSwitch"><div class="knob"></div></div>
+      </div>
+    </div>
+  `));
+
+  bindHomeEvents(main, p);
+}
+
+function bindHomeEvents(main, p){
+  // edit appointment time (agent mode)
+  const editTimeBtn = main.querySelector('#editTimeBtn');
+  if(editTimeBtn) editTimeBtn.addEventListener('click', ()=> openEditTime(p.id));
+
+  // agent-only touring notes
+  const saveAgentNotes = main.querySelector('#saveAgentNotes');
+  if(saveAgentNotes) saveAgentNotes.addEventListener('click', ()=>{
+    p.agentNotes = document.getElementById('agentNotes').value;
+    save(); render();
+  });
+
+  // photos
+  const photoInput = main.querySelector('#photoInput');
+  if(photoInput) photoInput.addEventListener('change', (e)=>{
+    [...e.target.files].forEach(f=>{
+      const reader = new FileReader();
+      reader.onload = ()=>{ p.photos.push(reader.result); save(); render(); };
+      reader.readAsDataURL(f);
+    });
+  });
+
+  // rating
+  const slider = main.querySelector('#ratingSlider');
+  const badge = main.querySelector('#ratingBadge');
+  if(slider){
+    slider.addEventListener('input', ()=>{
+      slider.style.setProperty('--pct', ((slider.value-1)/9*100)+'%');
+      badge.textContent = slider.value;
+      badge.style.background = scoreColor(slider.value);
+    });
+  }
+  main.querySelectorAll('[data-sub]').forEach(s=>{
+    s.addEventListener('input', ()=> s.style.setProperty('--pct', ((s.value-1)/9*100)+'%'));
+  });
+  const saveBtn = main.querySelector('#saveRating');
+  if(saveBtn) saveBtn.addEventListener('click', ()=>{
+    p.ratings.primary = Number(slider.value);
+    main.querySelectorAll('[data-sub]').forEach(s=> p.subScores[s.dataset.sub] = Number(s.value));
+    save(); render();
+  });
+  const partnerBtn = main.querySelector('#addPartnerRating');
+  if(partnerBtn) partnerBtn.addEventListener('click', ()=>{
+    openModal(`
+      <button class="closex" onclick="closeModal()">✕</button>
+      <h3>${DB.profile.partnerName}'s Rating</h3>
+      <div class="muted" style="margin-bottom:10px;">Submitted independently — kept separate from the primary score until both are in.</div>
+      <input type="range" min="1" max="10" value="5" id="partnerSlider">
+      <button class="btn" id="savePartner">Submit</button>
+    `);
+    document.getElementById('savePartner').addEventListener('click', ()=>{
+      p.ratings.partner = Number(document.getElementById('partnerSlider').value);
+      save(); closeModal(); render();
+    });
+  });
+
+  // pros/cons
+  main.querySelectorAll('.pro-chip,.con-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const type = chip.classList.contains('pro-chip')?'pro':'con';
+      const idx = p.prosCons.findIndex(pc=>pc.type===type && pc.text===chip.dataset.text);
+      if(idx>-1) p.prosCons.splice(idx,1); else p.prosCons.push({type,text:chip.dataset.text});
+      save(); render();
+    });
+  });
+  const addPro = main.querySelector('#addPro');
+  const addCon = main.querySelector('#addCon');
+  const customTag = main.querySelector('#customTag');
+  if(addPro) addPro.addEventListener('click', ()=>{
+    if(!customTag.value.trim()) return;
+    p.prosCons.push({type:'pro', text:customTag.value.trim()}); save(); render();
+  });
+  if(addCon) addCon.addEventListener('click', ()=>{
+    if(!customTag.value.trim()) return;
+    p.prosCons.push({type:'con', text:customTag.value.trim()}); save(); render();
+  });
+  main.querySelectorAll('[data-rm]').forEach(x=>{
+    x.addEventListener('click', ()=>{ p.prosCons.splice(Number(x.dataset.rm),1); save(); render(); });
+  });
+
+  // voice notes
+  const addVoice = main.querySelector('#addVoice');
+  if(addVoice) addVoice.addEventListener('click', ()=>{
+    openModal(`
+      <button class="closex" onclick="closeModal()">✕</button>
+      <h3>New Voice Note</h3>
+      <div class="muted" style="margin-bottom:10px;">This prototype simulates recording — type what you'd say and we'll log it as a transcribed note.</div>
+      <label>Label</label><input id="vLabel" placeholder="e.g. Kitchen walkthrough">
+      <label>Transcript</label><textarea id="vText" rows="3" placeholder="Speak your note here..."></textarea>
+      <div class="toggle" style="border:none;padding-top:0;">
+        <div class="muted">Share with agent</div>
+        <div class="switch" id="vShareSwitch"><div class="knob"></div></div>
+      </div>
+      <button class="btn" id="saveVoice">Save Voice Note</button>
+    `);
+    let vShare = false;
+    document.getElementById('vShareSwitch').addEventListener('click', function(){ vShare=!vShare; this.classList.toggle('on', vShare); });
+    document.getElementById('saveVoice').addEventListener('click', ()=>{
+      p.voiceNotes.push({ id:uid(), label:document.getElementById('vLabel').value||'Voice note', transcript:document.getElementById('vText').value, sharedWithAgent:vShare });
+      save(); closeModal(); render();
+    });
+  });
+
+  // favorite
+  const favSwitch = main.querySelector('#favSwitch');
+  if(favSwitch) favSwitch.addEventListener('click', ()=>{
+    p.favorite = !p.favorite;
+    if(p.favorite && !p.rank){
+      const maxRank = Math.max(0, ...DB.properties.filter(x=>x.favorite&&x.rank).map(x=>x.rank));
+      p.rank = maxRank+1;
+    }
+    save(); render();
+  });
+
+  // offer
+  const advanceBtn = main.querySelector('#advanceOffer');
+  if(advanceBtn){
+    const stages = ['Interested','Offer Drafted','Offer Submitted','Countered','Accepted'];
+    advanceBtn.addEventListener('click', ()=>{
+      if(!p.offerStatus){
+        p.offerStatus = 'Interested'; p.offerHistory.push('Interested');
+      } else if(p.offerStatus==='Offer Drafted'){
+        openModal(`
+          <button class="closex" onclick="closeModal()">✕</button>
+          <h3>Offer Terms</h3>
+          <label>Offer Price</label><input id="oPrice" type="number" placeholder="410000">
+          <label>Close Date</label><input id="oClose" type="date">
+          <label>Earnest Money</label><input id="oEarnest" type="number" placeholder="5000">
+          <label>Contingencies</label><input id="oCont" placeholder="Inspection, Financing">
+          <button class="btn" id="oSave">Submit Offer</button>
+        `);
+        document.getElementById('oSave').addEventListener('click', ()=>{
+          p.offerTerms = {
+            price:Number(document.getElementById('oPrice').value)||null,
+            closeDate:document.getElementById('oClose').value,
+            earnest:Number(document.getElementById('oEarnest').value)||null,
+            contingencies:document.getElementById('oCont').value
+          };
+          p.offerStatus='Offer Submitted'; p.offerHistory.push('Offer Submitted');
+          save(); closeModal(); render();
+        });
+        return;
+      } else {
+        const idx = stages.indexOf(p.offerStatus);
+        const next = stages[Math.min(idx+1, stages.length-1)];
+        p.offerStatus = next; p.offerHistory.push(next);
+      }
+      save(); render();
+    });
+  }
+
+  // documents — upload only available in Agent Mode
+  const docInput = main.querySelector('#docInput');
+  if(docInput && state.agentMode) docInput.addEventListener('change', (e)=>{
+    const f = e.target.files[0];
+    if(!f) return;
+    const docTypeSel = main.querySelector('#docType');
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      p.documents.push({
+        name:f.name,
+        type: docTypeSel ? docTypeSel.value : 'Other',
+        addedBy: 'Agent',
+        data: reader.result
+      });
+      save(); render();
+    };
+    reader.readAsDataURL(f);
+  });
+
+  // share with agent
+  const shareSwitch = main.querySelector('#shareSwitch');
+  if(shareSwitch) shareSwitch.addEventListener('click', ()=>{
+    p.sharedWithAgent = !p.sharedWithAgent; save(); render();
+  });
+}
+
+/* ============ FAVORITES ============ */
+function renderFavorites(main){
+  const favs = DB.properties.filter(p=>p.favorite).sort((a,b)=>(a.rank||99)-(b.rank||99));
+  if(!favs.length){
+    main.appendChild(el(`<div class="empty-state"><div class="ic">⭐</div>Heart a home from its detail page to add it to your ranked shortlist.</div>`));
+    return;
+  }
+  main.appendChild(el(`<div class="card"><h3>Your Ranked Shortlist</h3><div class="muted" style="margin-bottom:8px;">Visible live to ${DB.profile.agentName}.</div>${
+    favs.map((p,i)=>`
+      <div class="fav-rank" data-id="${p.id}">
+        <div class="num">${i+1}</div>
+        <img class="thumb" style="width:48px;height:48px;" src="${thumbFor(p)}">
+        <div class="info" style="flex:1;"><div class="addr">${p.address}</div><div class="sub">${fmtPrice(p.price)} · ${p.ratings.primary?p.ratings.primary+'/10':'unrated'}</div></div>
+        <div class="arrows">
+          <button data-up="${p.id}">▲</button>
+          <button data-down="${p.id}">▼</button>
+        </div>
+      </div>`).join('')
+  }</div>`));
+
+  main.querySelectorAll('[data-up]').forEach(b=> b.addEventListener('click', ()=> moveRank(b.dataset.up,-1)));
+  main.querySelectorAll('[data-down]').forEach(b=> b.addEventListener('click', ()=> moveRank(b.dataset.down,1)));
+  main.querySelectorAll('.fav-rank .info').forEach(row=>{
+    row.addEventListener('click', ()=> go('home',{propId: row.closest('.fav-rank').dataset.id}));
+  });
+}
+
+function moveRank(id, dir){
+  const favs = DB.properties.filter(p=>p.favorite).sort((a,b)=>(a.rank||99)-(b.rank||99));
+  const idx = favs.findIndex(p=>p.id===id);
+  const swapIdx = idx+dir;
+  if(swapIdx<0 || swapIdx>=favs.length) return;
+  const a = favs[idx], b = favs[swapIdx];
+  const tmp = a.rank; a.rank = b.rank; b.rank = tmp;
+  save(); render();
+}
+
+/* ============ COMPARE ============ */
+function renderCompare(main){
+  const candidates = DB.properties.filter(p=>p.checkedIn);
+  main.appendChild(el(`<div class="card">
+    <h3>Select homes to compare</h3>
+    ${candidates.map(p=>`<span class="chip ${state.compareIds.includes(p.id)?'selected':''}" data-cmp="${p.id}">${p.address}</span>`).join('')}
+  </div>`));
+
+  main.querySelectorAll('[data-cmp]').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const id = chip.dataset.cmp;
+      const i = state.compareIds.indexOf(id);
+      if(i>-1) state.compareIds.splice(i,1);
+      else if(state.compareIds.length<4) state.compareIds.push(id);
+      render();
+    });
+  });
+
+  const chosen = state.compareIds.map(getProp).filter(Boolean);
+  if(!chosen.length){
+    main.appendChild(el(`<div class="empty-state"><div class="ic">⚖️</div>Pick 2–4 homes above to compare side by side.</div>`));
+    return;
+  }
+
+  main.appendChild(el(`<div class="compare-grid">${
+    chosen.map(p=>`
+      <div class="compare-col">
+        <img src="${thumbFor(p)}">
+        <div style="font-weight:700;font-size:13px;">${p.address}</div>
+        <div class="lbl">Price</div><div class="val">${fmtPrice(p.price)}</div>
+        <div class="lbl">Your rating</div><div class="val">${p.ratings.primary?p.ratings.primary+'/10':'—'}</div>
+        <div class="lbl">${DB.profile.partnerName}'s rating</div><div class="val">${p.ratings.partner?p.ratings.partner+'/10':'—'}</div>
+        <div class="lbl">Beds/Baths</div><div class="val">${p.beds||'–'}bd / ${p.baths||'–'}ba</div>
+        <div class="lbl">Sqft</div><div class="val">${p.sqft?p.sqft.toLocaleString():'–'}</div>
+        <div class="lbl">Pros</div><div class="val">${p.prosCons.filter(x=>x.type==='pro').map(x=>x.text).join(', ')||'—'}</div>
+        <div class="lbl">Cons</div><div class="val">${p.prosCons.filter(x=>x.type==='con').map(x=>x.text).join(', ')||'—'}</div>
+        <div class="lbl">Offer status</div><div class="val">${p.offerStatus||'—'}</div>
+      </div>
+    `).join('')
+  }</div>`));
+
+  main.appendChild(el(`<button class="btn secondary" id="exportCompare" style="margin-top:14px;">Export / Share Comparison</button>`));
+  main.querySelector('#exportCompare').addEventListener('click', ()=>{
+    alert('In production this generates a shareable PDF of this comparison for you or your agent.');
+  });
+}
+
+/* ============ AGENT SHARE ============ */
+function renderAgent(main){
+  const shared = DB.properties.filter(p=>p.sharedWithAgent);
+  main.appendChild(el(`
+    <div class="banner-share">
+      You're sharing live activity on <strong>${shared.length}</strong> of ${DB.properties.length} homes with
+      <strong>${DB.profile.agentName}</strong>. Toggle sharing per-home from that home's detail page.
+    </div>
+  `));
+
+  main.appendChild(el(`<div class="card"><h3>Agent Dashboard Preview</h3>
+    <div class="muted" style="margin-bottom:10px;">This is what ${DB.profile.agentName.split(' ')[0]} sees for you right now — no follow-up call needed.</div>
+    ${shared.length ? shared.map(p=>`
+      <div class="home-row" data-id="${p.id}">
+        <img class="thumb" src="${thumbFor(p)}">
+        <div class="info">
+          <div class="addr">${p.address} ${p.favorite?'⭐':''}</div>
+          <div class="sub">Rating ${p.ratings.primary||'–'}/10 · ${p.offerStatus||'No offer yet'}</div>
+        </div>
+      </div>`).join('') : `<div class="muted">Nothing shared yet.</div>`}
+  </div>`));
+
+  bindHomeRows(main);
+
+  main.appendChild(el(`
+    <div class="card">
+      <h3>Message ${DB.profile.agentName.split(' ')[0]}</h3>
+      <textarea id="agentMsg" rows="3" placeholder="Ask a question or leave a note for your agent..."></textarea>
+      <button class="btn" id="sendMsg">Send</button>
+    </div>
+  `));
+  main.querySelector('#sendMsg').addEventListener('click', ()=>{
+    const v = document.getElementById('agentMsg').value.trim();
+    if(!v) return;
+    alert('Message sent to '+DB.profile.agentName+':\n\n"'+v+'"');
+    document.getElementById('agentMsg').value='';
+  });
+}
+
+/* ============ INIT ============ */
+initDB();
+</script>
+</body>
+</html>
