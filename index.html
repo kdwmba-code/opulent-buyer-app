@@ -480,7 +480,7 @@ function render(){
 
 /* ============ DASHBOARD ============ */
 function renderDashboard(main){
-  const upcoming = DB.properties.filter(p=>!p.checkedIn).sort((a,b)=> new Date(a.showingDate)-new Date(b.showingDate));
+  const upcoming = DB.properties.filter(p=>!p.checkedIn && !p.cancelled).sort((a,b)=> new Date(a.showingDate)-new Date(b.showingDate));
   const active = DB.properties.filter(p=>p.checkedIn);
   const offersInProgress = DB.properties.filter(p=>p.offerStatus && p.offerStatus!=='Accepted' && p.offerStatus!=='Rejected' && p.offerStatus!=='Withdrawn');
 
@@ -564,15 +564,23 @@ function renderSchedule(main){
   const sorted = [...DB.properties].sort((a,b)=> new Date(a.showingDate)-new Date(b.showingDate));
   main.appendChild(el(`<div class="card"><h3>Full Tour Schedule</h3>${
     sorted.map(p=>`
-      <div class="home-row" data-id="${p.id}">
+      <div class="home-row" data-id="${p.id}" style="${p.cancelled?'opacity:0.5;':''}">
         <img class="thumb" src="${thumbFor(p)}">
         <div class="info">
-          <div class="addr">${p.address}</div>
+          <div class="addr" style="${p.cancelled?'text-decoration:line-through;':''}">${p.address}</div>
           <div class="sub">${fmtPrice(p.price)} · ${p.beds||'–'}bd/${p.baths||'–'}ba · ${p.sqft?p.sqft.toLocaleString()+' sqft':'–'}</div>
-          <div class="sub">${fmtShowing(p)} ${p.checkedIn?'· <span style="color:var(--green)">Checked in</span>':''}</div>
+          <div class="sub">${fmtShowing(p)} ${p.cancelled?'· <span style="color:var(--danger)">Cancelled</span>':p.checkedIn?'· <span style="color:var(--green)">Checked in</span>':''}</div>
         </div>
-        ${state.agentMode ? `<button class="btn small ghost" data-edittime="${p.id}">Edit</button>` : ''}
-        ${!p.checkedIn ? `<button class="btn small" data-checkin="${p.id}">Check In</button>` : ''}
+        ${state.agentMode ? `
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            ${!p.cancelled ? `<button class="btn small ghost" data-edittime="${p.id}">Edit</button>` : ''}
+            ${p.checkedIn && !p.cancelled ? `<button class="btn small ghost" data-undocheckin="${p.id}">Undo Check-In</button>` : ''}
+            ${p.cancelled
+              ? `<button class="btn small secondary" data-restore="${p.id}">Restore</button>`
+              : `<button class="btn small danger" data-cancel="${p.id}">Cancel</button>`}
+          </div>
+        ` : ''}
+        ${!p.checkedIn && !p.cancelled ? `<button class="btn small" data-checkin="${p.id}">Check In</button>` : ''}
       </div>`).join('')
   }</div>`));
   bindHomeRows(main);
@@ -582,6 +590,47 @@ function renderSchedule(main){
   main.querySelectorAll('[data-edittime]').forEach(b=>{
     b.addEventListener('click',(e)=>{ e.stopPropagation(); openEditTime(b.dataset.edittime); });
   });
+  main.querySelectorAll('[data-undocheckin]').forEach(b=>{
+    b.addEventListener('click',(e)=>{ e.stopPropagation(); undoCheckIn(b.dataset.undocheckin); });
+  });
+  main.querySelectorAll('[data-cancel]').forEach(b=>{
+    b.addEventListener('click',(e)=>{ e.stopPropagation(); openCancelShowing(b.dataset.cancel); });
+  });
+  main.querySelectorAll('[data-restore]').forEach(b=>{
+    b.addEventListener('click',(e)=>{ e.stopPropagation(); restoreShowing(b.dataset.restore); });
+  });
+}
+
+function undoCheckIn(id){
+  const p = getProp(id);
+  p.checkedIn = false;
+  save(); render();
+}
+
+function openCancelShowing(id){
+  const p = getProp(id);
+  openModal(`
+    <button class="closex" onclick="closeModal()">✕</button>
+    <h3>Cancel Showing — ${p.address}</h3>
+    <div class="muted" style="margin-bottom:10px;">This keeps the home and any notes/ratings on record, but removes it from the active tour schedule and marks it cancelled. You can restore it later.</div>
+    <label>Reason (optional)</label>
+    <input id="cancelReason" placeholder="e.g. Seller pulled listing, buyer no longer interested...">
+    <button class="btn danger" id="confirmCancel">Cancel This Showing</button>
+    <button class="btn ghost" style="margin-top:8px;" onclick="closeModal()">Never Mind</button>
+  `);
+  document.getElementById('confirmCancel').addEventListener('click', ()=>{
+    p.cancelled = true;
+    p.cancelReason = document.getElementById('cancelReason').value || '';
+    p.checkedIn = false;
+    save(); closeModal(); render();
+  });
+}
+
+function restoreShowing(id){
+  const p = getProp(id);
+  p.cancelled = false;
+  p.cancelReason = '';
+  save(); render();
 }
 
 function openEditTime(id){
@@ -654,11 +703,19 @@ function renderHome(main){
           <h3 style="margin-bottom:2px;">${p.address}</h3>
           <div class="muted">${p.city||''}</div>
           <div class="muted">${fmtPrice(p.price)} · ${p.beds||'–'}bd/${p.baths||'–'}ba · ${p.sqft?p.sqft.toLocaleString():'–'} sqft</div>
-          <div class="muted">MLS# ${p.mls||'—'} · ${fmtShowing(p)}</div>
+          <div class="muted">MLS# ${p.mls||'—'} · ${fmtShowing(p)} ${p.cancelled?'· <span style="color:var(--danger)">Cancelled</span>':''}</div>
         </div>
         <div class="score-badge ${p.ratings.primary?'':'empty'}" style="${p.ratings.primary?`background:${scoreColor(p.ratings.primary)};color:#06210f;`:''}">${p.ratings.primary||'–'}</div>
       </div>
-      ${state.agentMode ? `<button class="btn ghost small" id="editTimeBtn" style="margin-top:10px;">Edit Appointment Time</button>` : ''}
+      ${state.agentMode ? `
+        <div class="row" style="margin-top:10px;">
+          ${!p.cancelled ? `<button class="btn ghost small" id="editTimeBtn">Edit Appointment Time</button>` : ''}
+          ${p.checkedIn && !p.cancelled ? `<button class="btn ghost small" id="undoCheckInBtn">Undo Check-In</button>` : ''}
+          ${p.cancelled
+            ? `<button class="btn secondary small" id="restoreBtn">Restore Showing</button>`
+            : `<button class="btn danger small" id="cancelBtn">Cancel Showing</button>`}
+        </div>
+      ` : ''}
     </div>
   `));
 
@@ -819,6 +876,12 @@ function bindHomeEvents(main, p){
   // edit appointment time (agent mode)
   const editTimeBtn = main.querySelector('#editTimeBtn');
   if(editTimeBtn) editTimeBtn.addEventListener('click', ()=> openEditTime(p.id));
+  const undoCheckInBtn = main.querySelector('#undoCheckInBtn');
+  if(undoCheckInBtn) undoCheckInBtn.addEventListener('click', ()=> undoCheckIn(p.id));
+  const cancelBtn = main.querySelector('#cancelBtn');
+  if(cancelBtn) cancelBtn.addEventListener('click', ()=> openCancelShowing(p.id));
+  const restoreBtn = main.querySelector('#restoreBtn');
+  if(restoreBtn) restoreBtn.addEventListener('click', ()=> restoreShowing(p.id));
 
   // agent-only touring notes
   const saveAgentNotes = main.querySelector('#saveAgentNotes');
@@ -1031,7 +1094,7 @@ function moveRank(id, dir){
 
 /* ============ COMPARE ============ */
 function renderCompare(main){
-  const candidates = DB.properties.filter(p=>p.checkedIn);
+  const candidates = DB.properties.filter(p=>p.checkedIn && !p.cancelled);
   main.appendChild(el(`<div class="card">
     <h3>Select homes to compare</h3>
     ${candidates.map(p=>`<span class="chip ${state.compareIds.includes(p.id)?'selected':''}" data-cmp="${p.id}">${p.address}</span>`).join('')}
