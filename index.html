@@ -441,6 +441,66 @@ function fmtShowing(p){
 }
 function scoreColor(s){ return s>=8?'var(--green)': s>=5?'var(--warn)':'var(--danger)'; }
 function el(html){ const d=document.createElement('div'); d.innerHTML=html.trim(); return d.firstChild; }
+
+/* ============ MAPS / DIRECTIONS / TRAVEL TIME ============ */
+function fullAddr(p){ return `${p.address}, ${p.city||''}`.trim().replace(/,\s*$/,''); }
+function isIOS(){ return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
+function mapsUrlFor(p){
+  const q = encodeURIComponent(fullAddr(p));
+  return isIOS() ? `https://maps.apple.com/?daddr=${q}` : `https://www.google.com/maps/dir/?api=1&destination=${q}`;
+}
+function directionsUrlBetween(fromP, toP){
+  const o = encodeURIComponent(fullAddr(fromP)), d = encodeURIComponent(fullAddr(toP));
+  return isIOS() ? `https://maps.apple.com/?saddr=${o}&daddr=${d}` : `https://www.google.com/maps/dir/?api=1&origin=${o}&destination=${d}`;
+}
+function openMaps(id){
+  const p = getProp(id);
+  window.open(mapsUrlFor(p), '_blank');
+}
+function copyAddress(id){
+  const p = getProp(id);
+  const text = fullAddr(p);
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=> toast('Address copied')).catch(()=> toast(text));
+  } else {
+    toast(text);
+  }
+}
+function toast(msg){
+  const t = el(`<div style="position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#1f1f1f;border:1px solid var(--green-dim);color:var(--white);padding:8px 16px;border-radius:20px;font-size:13px;z-index:100;">${msg}</div>`);
+  document.body.appendChild(t);
+  setTimeout(()=> t.remove(), 1800);
+}
+
+// Rough straight-line drive-time estimate (geocoded once via OpenStreetMap, cached on the property).
+// This is NOT live-traffic accurate — it's a ballpark so you can eyeball your day. Tap "Directions" for the real ETA.
+const AVG_SPEED_MPH = 27; // suburban PA heuristic: accounts for lights/turns, not highway cruising
+function haversineMiles(lat1, lon1, lat2, lon2){
+  const R = 3958.8;
+  const dLat = (lat2-lat1) * Math.PI/180, dLon = (lon2-lon1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+async function geocode(p){
+  if(p.lat && p.lng) return { lat:p.lat, lng:p.lng };
+  try{
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(fullAddr(p))}`);
+    const rows = await res.json();
+    if(rows && rows[0]){
+      p.lat = parseFloat(rows[0].lat); p.lng = parseFloat(rows[0].lon);
+      save();
+      return { lat:p.lat, lng:p.lng };
+    }
+  } catch(e){ console.warn('geocode failed', e); }
+  return null;
+}
+async function estimateTravel(fromP, toP){
+  const a = await geocode(fromP), b = await geocode(toP);
+  if(!a || !b) return null;
+  const miles = haversineMiles(a.lat, a.lng, b.lat, b.lng);
+  const minutes = Math.round((miles / AVG_SPEED_MPH) * 60);
+  return { miles: miles.toFixed(1), minutes };
+}
 function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
 function openModal(html){
   document.getElementById('modalRoot').innerHTML =
@@ -557,17 +617,29 @@ function checkIn(id){
 }
 
 /* ============ SCHEDULE ============ */
+const travelCache = {}; // "fromId_toId" -> {miles, minutes}
+
+function addrLineHTML(p){
+  return `<div style="display:flex;align-items:center;gap:6px;">
+    <span class="addr" data-maps="${p.id}" style="cursor:pointer;${p.cancelled?'text-decoration:line-through;':''}" title="Open in Maps">${p.address}</span>
+    <button data-copy="${p.id}" title="Copy address" style="background:none;border:none;color:var(--grey);cursor:pointer;font-size:13px;padding:0;">📋</button>
+  </div>`;
+}
+
 function renderSchedule(main){
   if(state.agentMode){
     main.appendChild(el(`<div class="banner-share">Agent Mode is on — you can edit showing times and add homes to ${DB.profile.buyerName.split(' ')[0]}'s schedule.</div>`));
   }
   const sorted = [...DB.properties].sort((a,b)=> new Date(a.showingDate)-new Date(b.showingDate));
-  main.appendChild(el(`<div class="card"><h3>Full Tour Schedule</h3>${
-    sorted.map(p=>`
+  const active = sorted.filter(p=>!p.cancelled);
+
+  let rowsHtml = '';
+  sorted.forEach((p, idx)=>{
+    rowsHtml += `
       <div class="home-row" data-id="${p.id}" style="${p.cancelled?'opacity:0.5;':''}">
         <img class="thumb" src="${thumbFor(p)}">
         <div class="info">
-          <div class="addr" style="${p.cancelled?'text-decoration:line-through;':''}">${p.address}</div>
+          ${addrLineHTML(p)}
           <div class="sub">${fmtPrice(p.price)} · ${p.beds||'–'}bd/${p.baths||'–'}ba · ${p.sqft?p.sqft.toLocaleString()+' sqft':'–'}</div>
           <div class="sub">${fmtShowing(p)} ${p.cancelled?'· <span style="color:var(--danger)">Cancelled</span>':p.checkedIn?'· <span style="color:var(--green)">Checked in</span>':''}</div>
         </div>
@@ -581,8 +653,27 @@ function renderSchedule(main){
           </div>
         ` : ''}
         ${!p.checkedIn && !p.cancelled ? `<button class="btn small" data-checkin="${p.id}">Check In</button>` : ''}
-      </div>`).join('')
-  }</div>`));
+      </div>`;
+
+    // travel connector to the next ACTIVE (non-cancelled) showing
+    if(!p.cancelled){
+      const restActive = active.slice(active.indexOf(p)+1);
+      const next = restActive[0];
+      if(next){
+        const key = `${p.id}_${next.id}`;
+        const cached = travelCache[key];
+        rowsHtml += `
+          <div class="sub" style="padding:6px 0 6px 66px;border-bottom:1px solid #1e1e1e;display:flex;align-items:center;gap:10px;" data-travel="${key}" data-from="${p.id}" data-to="${next.id}">
+            ${cached
+              ? `🚗 ~${cached.miles} mi · ~${cached.minutes} min to next showing (estimate)`
+              : `🚗 calculating drive time to next showing…`}
+            <a href="${directionsUrlBetween(p, next)}" target="_blank" style="color:var(--green);text-decoration:none;font-weight:600;" onclick="event.stopPropagation()">Directions →</a>
+          </div>`;
+      }
+    }
+  });
+
+  main.appendChild(el(`<div class="card"><h3>Full Tour Schedule</h3>${rowsHtml}</div>`));
   bindHomeRows(main);
   main.querySelectorAll('[data-checkin]').forEach(b=>{
     b.addEventListener('click',(e)=>{ e.stopPropagation(); checkIn(b.dataset.checkin); });
@@ -598,6 +689,22 @@ function renderSchedule(main){
   });
   main.querySelectorAll('[data-restore]').forEach(b=>{
     b.addEventListener('click',(e)=>{ e.stopPropagation(); restoreShowing(b.dataset.restore); });
+  });
+  main.querySelectorAll('[data-maps]').forEach(b=>{
+    b.addEventListener('click',(e)=>{ e.stopPropagation(); openMaps(b.dataset.maps); });
+  });
+  main.querySelectorAll('[data-copy]').forEach(b=>{
+    b.addEventListener('click',(e)=>{ e.stopPropagation(); copyAddress(b.dataset.copy); });
+  });
+
+  // resolve any uncached travel estimates in the background, then re-render just this view
+  main.querySelectorAll('[data-travel]').forEach(node=>{
+    const key = node.dataset.travel;
+    if(travelCache[key]) return;
+    const fromP = getProp(node.dataset.from), toP = getProp(node.dataset.to);
+    estimateTravel(fromP, toP).then(result=>{
+      if(result){ travelCache[key] = result; if(state.view==='schedule') render(); }
+    });
   });
 }
 
@@ -700,7 +807,10 @@ function renderHome(main){
     <div class="card">
       <div class="row" style="align-items:flex-start;">
         <div>
-          <h3 style="margin-bottom:2px;">${p.address}</h3>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <h3 style="margin-bottom:2px;cursor:pointer;" id="addrHeading" title="Open in Maps">${p.address}</h3>
+            <button id="copyAddrBtn" title="Copy address" style="background:none;border:none;color:var(--grey);cursor:pointer;font-size:15px;padding:0;margin-bottom:2px;">📋</button>
+          </div>
           <div class="muted">${p.city||''}</div>
           <div class="muted">${fmtPrice(p.price)} · ${p.beds||'–'}bd/${p.baths||'–'}ba · ${p.sqft?p.sqft.toLocaleString():'–'} sqft</div>
           <div class="muted">MLS# ${p.mls||'—'} · ${fmtShowing(p)} ${p.cancelled?'· <span style="color:var(--danger)">Cancelled</span>':''}</div>
@@ -874,6 +984,11 @@ function renderHome(main){
 
 function bindHomeEvents(main, p){
   // edit appointment time (agent mode)
+  const addrHeading = main.querySelector('#addrHeading');
+  if(addrHeading) addrHeading.addEventListener('click', ()=> openMaps(p.id));
+  const copyAddrBtn = main.querySelector('#copyAddrBtn');
+  if(copyAddrBtn) copyAddrBtn.addEventListener('click', ()=> copyAddress(p.id));
+
   const editTimeBtn = main.querySelector('#editTimeBtn');
   if(editTimeBtn) editTimeBtn.addEventListener('click', ()=> openEditTime(p.id));
   const undoCheckInBtn = main.querySelector('#undoCheckInBtn');
