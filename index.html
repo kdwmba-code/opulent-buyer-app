@@ -327,23 +327,26 @@ function seedDB(){
       partnerName:'', partnerEmail:'', partnerPhone:'',
       agentName:'Keenan D. Washington, Sr.', agentEmail:'kdwmba@gmail.com'
     },
+    // Buyer's financing profile, from their preapproval. Agent-editable only. Blank until set —
+    // no cost estimate is shown anywhere until this is filled in.
+    financing:{ loanType:'', downPaymentPct:null, interestRate:null, loanTermYears:30 },
     properties: [
       {
-        id:'p1', address:'7931 Jenkintown Rd', city:'Cheltenham, PA 19012', price:599900, beds:4, baths:3.5, sqft:2494, mls:'PAMC2175360',
+        id:'p1', address:'7931 Jenkintown Rd', city:'Cheltenham, PA 19012', price:549900, beds:4, baths:3.5, sqft:2494, mls:'PAMC2175360', annualTax:11548,
         showingDate:'2026-08-06T15:45', durationMinutes:15, checkedIn:false,
         photos:[], subScores:{}, ratings:{}, prosCons:[], voiceNotes:[],
         favorite:false, rank:null,
         offerStatus:null, offerHistory:[], offerTerms:{}, documents:[], agentNotes:'', sharedWithAgent:false
       },
       {
-        id:'p2', address:'349 Rettop Place', city:'Warminster, PA 18974', price:549900, beds:5, baths:2.5, sqft:1887, mls:'PABU2127928',
+        id:'p2', address:'349 Rettop Place', city:'Warminster, PA 18974', price:549900, beds:5, baths:2.5, sqft:1887, mls:'PABU2127928', annualTax:6338,
         showingDate:'2026-08-06T16:30', durationMinutes:15, checkedIn:false,
         photos:[], subScores:{}, ratings:{}, prosCons:[], voiceNotes:[],
         favorite:false, rank:null,
         offerStatus:null, offerHistory:[], offerTerms:{}, documents:[], agentNotes:'', sharedWithAgent:false
       },
       {
-        id:'p3', address:'1008 Pioneer Rd', city:'Lansdale, PA 19446', price:499000, beds:4, baths:2, sqft:1741, mls:'PAMC2187718',
+        id:'p3', address:'1008 Pioneer Rd', city:'Lansdale, PA 19446', price:499000, beds:4, baths:2, sqft:1741, mls:'PAMC2187718', annualTax:5093,
         showingDate:'2026-08-06T17:15', durationMinutes:null, checkedIn:false,
         photos:[], subScores:{}, ratings:{}, prosCons:[], voiceNotes:[],
         favorite:false, rank:null,
@@ -354,12 +357,26 @@ function seedDB(){
   return seed;
 }
 
+// Real MLS tax figures as of this build, used as a fallback for rows that predate this field
+// (e.g. already-seeded Supabase rows) so nobody has to re-run SQL to get accurate numbers.
+const KNOWN_TAX = { p1: 11548, p2: 6338, p3: 5093 };
+const KNOWN_PRICE = { p1: 549900 }; // Jenkintown Rd price-dropped after the row was first seeded
+
 let DB = null;
+
+function normalizeDB(){
+  if(!DB) return;
+  if(!DB.financing) DB.financing = { loanType:'', downPaymentPct:null, interestRate:null, loanTermYears:30 };
+  (DB.properties||[]).forEach(p=>{
+    if((p.annualTax==null) && KNOWN_TAX[p.id]!=null) p.annualTax = KNOWN_TAX[p.id];
+  });
+}
 
 async function initDB(){
   // offline-first: paint immediately from local cache (or seed) while we reach out to Supabase
   const cached = localStorage.getItem(DB_KEY);
   DB = cached ? JSON.parse(cached) : seedDB();
+  normalizeDB();
   render();
 
   if(!sb) return;
@@ -368,6 +385,7 @@ async function initDB(){
     if(error) throw error;
     if(data && data.data){
       DB = data.data;
+      normalizeDB();
     } else {
       // no shared row yet — create it from our seed/cache so every device converges on the same state
       const { error: insertErr } = await sb.from('buyer_app_state').insert({ id: ROW_ID, data: DB });
@@ -389,6 +407,7 @@ function subscribeRealtime(){
     .on('postgres_changes', { event:'*', schema:'public', table:'buyer_app_state', filter:`id=eq.${ROW_ID}` }, (payload)=>{
       if(payload.new && payload.new.data){
         DB = payload.new.data;
+        normalizeDB();
         localStorage.setItem(DB_KEY, JSON.stringify(DB));
         render();
       }
@@ -501,6 +520,42 @@ async function estimateTravel(fromP, toP){
   const minutes = Math.round((miles / AVG_SPEED_MPH) * 60);
   return { miles: miles.toFixed(1), minutes };
 }
+
+/* ============ ESTIMATED MONTHLY COST (mortgage + taxes + insurance) ============ */
+// Rough estimates for comparison purposes only — NOT a loan quote. Actual payment depends on the
+// buyer's final locked rate, lender fees, escrow requirements, and actual insurance quote.
+const INSURANCE_RATE_ANNUAL = 0.0035; // ~0.35% of price/yr — typical PA homeowners insurance ballpark
+const PMI_RATE_ANNUAL = 0.0075;       // ~0.75% of loan/yr — typical conventional PMI when <20% down
+const FHA_MIP_RATE_ANNUAL = 0.0055;   // ~0.55% of loan/yr — current FHA annual MIP ballpark
+
+function estimateMonthly(p){
+  const f = DB.financing;
+  if(!f || !f.loanType || !p.price) return null;
+  const price = p.price;
+  const isCash = f.loanType === 'Cash';
+  const downPct = isCash ? 100 : (f.downPaymentPct != null ? f.downPaymentPct : 0);
+  const loanAmount = price * (1 - downPct/100);
+
+  let piMonthly = 0;
+  if(!isCash){
+    if(!f.interestRate) return null; // financing selected but rate not set yet
+    const r = (f.interestRate/100)/12;
+    const n = (f.loanTermYears||30) * 12;
+    piMonthly = r === 0 ? loanAmount/n : loanAmount * (r*Math.pow(1+r,n)) / (Math.pow(1+r,n)-1);
+  }
+
+  const taxMonthly = (p.annualTax != null ? p.annualTax : price * 0.014) / 12; // ~1.4% fallback if unknown
+  const insMonthly = (price * INSURANCE_RATE_ANNUAL) / 12;
+
+  let miMonthly = 0;
+  if(!isCash && f.loanType === 'Conventional' && downPct < 20) miMonthly = (loanAmount * PMI_RATE_ANNUAL) / 12;
+  if(!isCash && f.loanType === 'FHA') miMonthly = (loanAmount * FHA_MIP_RATE_ANNUAL) / 12;
+
+  const total = piMonthly + taxMonthly + insMonthly + miMonthly;
+  return { piMonthly, taxMonthly, insMonthly, miMonthly, total, loanAmount, downPct };
+}
+
+function fmtMonthly(n){ return '$' + Math.round(n).toLocaleString(); }
 function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
 function openModal(html){
   document.getElementById('modalRoot').innerHTML =
@@ -561,6 +616,7 @@ function renderDashboard(main){
         <div class="info">
           <div class="addr">${upcoming[0].address}</div>
           <div class="sub">${fmtPrice(upcoming[0].price)} · ${upcoming[0].beds||'–'}bd/${upcoming[0].baths||'–'}ba · ${upcoming[0].sqft?upcoming[0].sqft.toLocaleString()+' sqft':'–'}</div>
+          ${estimateMonthly(upcoming[0]) ? `<div class="sub" style="color:var(--green);">~${fmtMonthly(estimateMonthly(upcoming[0]).total)}/mo est.</div>` : ''}
           <div class="sub">${fmtShowing(upcoming[0])}</div>
         </div>
         <button class="btn small" data-checkin="${upcoming[0].id}">Check In</button>
@@ -593,11 +649,13 @@ function thumbFor(p){
 
 function homeRowHTML(p){
   const score = p.ratings && p.ratings.primary;
+  const est = estimateMonthly(p);
   return `<div class="home-row" data-id="${p.id}">
     <img class="thumb" src="${thumbFor(p)}">
     <div class="info">
       <div class="addr">${p.address}</div>
       <div class="sub">${fmtPrice(p.price)} · ${p.beds}bd/${p.baths}ba · ${p.sqft?p.sqft.toLocaleString()+' sqft':''}</div>
+      ${est ? `<div class="sub" style="color:var(--green);">~${fmtMonthly(est.total)}/mo est.</div>` : ''}
     </div>
     <div class="score-badge ${score?'':'empty'}" style="${score?`background:${scoreColor(score)};color:#06210f;`:''}">${score||'–'}</div>
   </div>`;
@@ -641,6 +699,7 @@ function renderSchedule(main){
         <div class="info">
           ${addrLineHTML(p)}
           <div class="sub">${fmtPrice(p.price)} · ${p.beds||'–'}bd/${p.baths||'–'}ba · ${p.sqft?p.sqft.toLocaleString()+' sqft':'–'}</div>
+          ${estimateMonthly(p) ? `<div class="sub" style="color:var(--green);">~${fmtMonthly(estimateMonthly(p).total)}/mo est.</div>` : ''}
           <div class="sub">${fmtShowing(p)} ${p.cancelled?'· <span style="color:var(--danger)">Cancelled</span>':p.checkedIn?'· <span style="color:var(--green)">Checked in</span>':''}</div>
         </div>
         ${state.agentMode ? `
@@ -828,6 +887,25 @@ function renderHome(main){
       ` : ''}
     </div>
   `));
+
+  // Estimated monthly cost
+  const est = estimateMonthly(p);
+  if(est){
+    main.appendChild(el(`
+      <div class="card">
+        <h3>Estimated Monthly Cost <span style="color:var(--green);">~${fmtMonthly(est.total)}/mo</span></h3>
+        <div class="grid2">
+          <div><div class="muted">Principal & Interest</div><div>${fmtMonthly(est.piMonthly)}</div></div>
+          <div><div class="muted">Property Tax</div><div>${fmtMonthly(est.taxMonthly)}</div></div>
+          <div><div class="muted">Homeowners Insurance</div><div>${fmtMonthly(est.insMonthly)}</div></div>
+          ${est.miMonthly ? `<div><div class="muted">${DB.financing.loanType==='FHA'?'MIP':'PMI'}</div><div>${fmtMonthly(est.miMonthly)}</div></div>` : ''}
+        </div>
+        <div class="muted" style="margin-top:10px;">Based on ${DB.financing.loanType}${DB.financing.loanType!=='Cash' ? `, ${est.downPct}% down, ${DB.financing.interestRate}% rate` : ''}. Estimate only — not a loan quote.</div>
+      </div>
+    `));
+  } else if(state.agentMode) {
+    main.appendChild(el(`<div class="card"><h3>Estimated Monthly Cost</h3><div class="muted">Set the buyer's financing info on the Agent tab to show a monthly cost estimate here.</div></div>`));
+  }
 
   // Photos
   main.appendChild(el(`
@@ -1237,6 +1315,7 @@ function renderCompare(main){
         <img src="${thumbFor(p)}">
         <div style="font-weight:700;font-size:13px;">${p.address}</div>
         <div class="lbl">Price</div><div class="val">${fmtPrice(p.price)}</div>
+        <div class="lbl">Est. Monthly Cost</div><div class="val" style="color:var(--green);">${estimateMonthly(p) ? '~'+fmtMonthly(estimateMonthly(p).total)+'/mo' : 'Set financing info'}</div>
         <div class="lbl">Your rating</div><div class="val">${p.ratings.primary?p.ratings.primary+'/10':'—'}</div>
         <div class="lbl">${DB.profile.partnerName}'s rating</div><div class="val">${p.ratings.partner?p.ratings.partner+'/10':'—'}</div>
         <div class="lbl">Beds/Baths</div><div class="val">${p.beds||'–'}bd / ${p.baths||'–'}ba</div>
@@ -1255,6 +1334,40 @@ function renderCompare(main){
 }
 
 /* ============ AGENT SHARE ============ */
+function openEditFinancing(){
+  const f = DB.financing || {};
+  openModal(`
+    <button class="closex" onclick="closeModal()">✕</button>
+    <h3>Buyer Financing</h3>
+    <div class="muted" style="margin-bottom:10px;">From the preapproval letter. Drives the estimated monthly cost shown on every home.</div>
+    <label>Loan Type</label>
+    <select id="finType">
+      <option value="">Select…</option>
+      <option value="Cash" ${f.loanType==='Cash'?'selected':''}>Cash</option>
+      <option value="Conventional" ${f.loanType==='Conventional'?'selected':''}>Conventional</option>
+      <option value="FHA" ${f.loanType==='FHA'?'selected':''}>FHA</option>
+      <option value="VA" ${f.loanType==='VA'?'selected':''}>VA</option>
+    </select>
+    <label>Down Payment %</label>
+    <input id="finDown" type="number" step="0.5" placeholder="e.g. 5, 3.5, 20" value="${f.downPaymentPct!=null?f.downPaymentPct:''}">
+    <label>Interest Rate % (from preapproval)</label>
+    <input id="finRate" type="number" step="0.01" placeholder="e.g. 6.75" value="${f.interestRate!=null?f.interestRate:''}">
+    <label>Loan Term (years)</label>
+    <input id="finTerm" type="number" placeholder="30" value="${f.loanTermYears||30}">
+    <button class="btn" id="finSave">Save Financing Info</button>
+  `);
+  document.getElementById('finSave').addEventListener('click', ()=>{
+    const loanType = document.getElementById('finType').value;
+    DB.financing = {
+      loanType,
+      downPaymentPct: loanType==='Cash' ? 100 : (Number(document.getElementById('finDown').value) || null),
+      interestRate: loanType==='Cash' ? null : (Number(document.getElementById('finRate').value) || null),
+      loanTermYears: Number(document.getElementById('finTerm').value) || 30
+    };
+    save(); closeModal(); render();
+  });
+}
+
 function renderAgent(main){
   const shared = DB.properties.filter(p=>p.sharedWithAgent);
   main.appendChild(el(`
@@ -1263,6 +1376,24 @@ function renderAgent(main){
       <strong>${DB.profile.agentName}</strong>. Toggle sharing per-home from that home's detail page.
     </div>
   `));
+
+  const f = DB.financing || {};
+  main.appendChild(el(`
+    <div class="card">
+      <h3>Buyer Financing</h3>
+      ${f.loanType ? `
+        <div class="grid2">
+          <div><div class="muted">Loan type</div><div>${f.loanType}</div></div>
+          <div><div class="muted">Down payment</div><div>${f.loanType==='Cash' ? '100% (cash)' : (f.downPaymentPct!=null ? f.downPaymentPct+'%' : '—')}</div></div>
+          <div><div class="muted">Interest rate</div><div>${f.loanType==='Cash' ? '—' : (f.interestRate!=null ? f.interestRate+'%' : 'not set')}</div></div>
+          <div><div class="muted">Term</div><div>${f.loanType==='Cash' ? '—' : (f.loanTermYears||30)+' yr'}</div></div>
+        </div>
+      ` : `<div class="muted">Not set yet — estimated monthly costs won't show until financing is entered.</div>`}
+      ${state.agentMode ? `<button class="btn secondary" id="editFinancingBtn" style="margin-top:10px;">${f.loanType?'Edit':'Set'} Financing Info</button>` : ''}
+    </div>
+  `));
+  const editFinancingBtn = main.querySelector('#editFinancingBtn');
+  if(editFinancingBtn) editFinancingBtn.addEventListener('click', openEditFinancing);
 
   main.appendChild(el(`<div class="card"><h3>Agent Dashboard Preview</h3>
     <div class="muted" style="margin-bottom:10px;">This is what ${DB.profile.agentName.split(' ')[0]} sees for you right now — no follow-up call needed.</div>
