@@ -614,7 +614,7 @@ function renderDashboard(main){
       <div class="home-row" data-id="${upcoming[0].id}">
         <img class="thumb" src="${thumbFor(upcoming[0])}">
         <div class="info">
-          <div class="addr">${upcoming[0].address}</div>
+          <div class="addr">${fullAddr(upcoming[0])}</div>
           <div class="sub">${fmtPrice(upcoming[0].price)} · ${upcoming[0].beds||'–'}bd/${upcoming[0].baths||'–'}ba · ${upcoming[0].sqft?upcoming[0].sqft.toLocaleString()+' sqft':'–'}</div>
           ${estimateMonthly(upcoming[0]) ? `<div class="sub" style="color:var(--green);">~${fmtMonthly(estimateMonthly(upcoming[0]).total)}/mo est.</div>` : ''}
           <div class="sub">${fmtShowing(upcoming[0])}</div>
@@ -628,7 +628,7 @@ function renderDashboard(main){
     main.appendChild(el(`<div class="card"><h3>Offers In Progress</h3>${offersInProgress.map(p=>`
       <div class="home-row" data-id="${p.id}">
         <img class="thumb" src="${thumbFor(p)}">
-        <div class="info"><div class="addr">${p.address}</div><div class="sub">${p.offerStatus}</div></div>
+        <div class="info"><div class="addr">${fullAddr(p)}</div><div class="sub">${p.offerStatus}</div></div>
       </div>`).join('')}</div>`));
   }
 
@@ -653,7 +653,7 @@ function homeRowHTML(p){
   return `<div class="home-row" data-id="${p.id}">
     <img class="thumb" src="${thumbFor(p)}">
     <div class="info">
-      <div class="addr">${p.address}</div>
+      <div class="addr">${fullAddr(p)}</div>
       <div class="sub">${fmtPrice(p.price)} · ${p.beds}bd/${p.baths}ba · ${p.sqft?p.sqft.toLocaleString()+' sqft':''}</div>
       ${est ? `<div class="sub" style="color:var(--green);">~${fmtMonthly(est.total)}/mo est.</div>` : ''}
     </div>
@@ -679,7 +679,7 @@ const travelCache = {}; // "fromId_toId" -> {miles, minutes}
 
 function addrLineHTML(p){
   return `<div style="display:flex;align-items:center;gap:6px;">
-    <span class="addr" data-maps="${p.id}" style="cursor:pointer;${p.cancelled?'text-decoration:line-through;':''}" title="Open in Maps">${p.address}</span>
+    <span class="addr" data-maps="${p.id}" style="cursor:pointer;${p.cancelled?'text-decoration:line-through;':''}" title="Open in Maps">${fullAddr(p)}</span>
     <button data-copy="${p.id}" title="Copy address" style="background:none;border:none;color:var(--grey);cursor:pointer;font-size:13px;padding:0;">📋</button>
   </div>`;
 }
@@ -777,7 +777,7 @@ function openCancelShowing(id){
   const p = getProp(id);
   openModal(`
     <button class="closex" onclick="closeModal()">✕</button>
-    <h3>Cancel Showing — ${p.address}</h3>
+    <h3>Cancel Showing — ${fullAddr(p)}</h3>
     <div class="muted" style="margin-bottom:10px;">This keeps the home and any notes/ratings on record, but removes it from the active tour schedule and marks it cancelled. You can restore it later.</div>
     <label>Reason (optional)</label>
     <input id="cancelReason" placeholder="e.g. Seller pulled listing, buyer no longer interested...">
@@ -803,7 +803,7 @@ function openEditTime(id){
   const p = getProp(id);
   openModal(`
     <button class="closex" onclick="closeModal()">✕</button>
-    <h3>Edit Appointment — ${p.address}</h3>
+    <h3>Edit Appointment — ${fullAddr(p)}</h3>
     <label>Showing Date/Time</label><input id="eDate" type="datetime-local" value="${p.showingDate ? p.showingDate.slice(0,16) : ''}">
     <label>Duration (minutes)</label><input id="eDuration" type="number" value="${p.durationMinutes||''}" placeholder="15">
     <button class="btn" id="eSave">Save Changes</button>
@@ -867,10 +867,9 @@ function renderHome(main){
       <div class="row" style="align-items:flex-start;">
         <div>
           <div style="display:flex;align-items:center;gap:8px;">
-            <h3 style="margin-bottom:2px;cursor:pointer;" id="addrHeading" title="Open in Maps">${p.address}</h3>
+            <h3 style="margin-bottom:2px;cursor:pointer;" id="addrHeading" title="Open in Maps">${fullAddr(p)}</h3>
             <button id="copyAddrBtn" title="Copy address" style="background:none;border:none;color:var(--grey);cursor:pointer;font-size:15px;padding:0;margin-bottom:2px;">📋</button>
           </div>
-          <div class="muted">${p.city||''}</div>
           <div class="muted">${fmtPrice(p.price)} · ${p.beds||'–'}bd/${p.baths||'–'}ba · ${p.sqft?p.sqft.toLocaleString():'–'} sqft</div>
           <div class="muted">MLS# ${p.mls||'—'} · ${fmtShowing(p)} ${p.cancelled?'· <span style="color:var(--danger)">Cancelled</span>':''}</div>
         </div>
@@ -1260,7 +1259,7 @@ function renderFavorites(main){
       <div class="fav-rank" data-id="${p.id}">
         <div class="num">${i+1}</div>
         <img class="thumb" style="width:48px;height:48px;" src="${thumbFor(p)}">
-        <div class="info" style="flex:1;"><div class="addr">${p.address}</div><div class="sub">${fmtPrice(p.price)} · ${p.ratings.primary?p.ratings.primary+'/10':'unrated'}</div></div>
+        <div class="info" style="flex:1;"><div class="addr">${fullAddr(p)}</div><div class="sub">${fmtPrice(p.price)} · ${p.ratings.primary?p.ratings.primary+'/10':'unrated'}</div></div>
         <div class="arrows">
           <button data-up="${p.id}">▲</button>
           <button data-down="${p.id}">▼</button>
@@ -1290,7 +1289,7 @@ function renderCompare(main){
   const candidates = DB.properties.filter(p=>p.checkedIn && !p.cancelled);
   main.appendChild(el(`<div class="card">
     <h3>Select homes to compare</h3>
-    ${candidates.map(p=>`<span class="chip ${state.compareIds.includes(p.id)?'selected':''}" data-cmp="${p.id}">${p.address}</span>`).join('')}
+    ${candidates.map(p=>`<span class="chip ${state.compareIds.includes(p.id)?'selected':''}" data-cmp="${p.id}">${fullAddr(p)}</span>`).join('')}
   </div>`));
 
   main.querySelectorAll('[data-cmp]').forEach(chip=>{
@@ -1313,7 +1312,7 @@ function renderCompare(main){
     chosen.map(p=>`
       <div class="compare-col">
         <img src="${thumbFor(p)}">
-        <div style="font-weight:700;font-size:13px;">${p.address}</div>
+        <div style="font-weight:700;font-size:13px;">${fullAddr(p)}</div>
         <div class="lbl">Price</div><div class="val">${fmtPrice(p.price)}</div>
         <div class="lbl">Est. Monthly Cost</div><div class="val" style="color:var(--green);">${estimateMonthly(p) ? '~'+fmtMonthly(estimateMonthly(p).total)+'/mo' : 'Set financing info'}</div>
         <div class="lbl">Your rating</div><div class="val">${p.ratings.primary?p.ratings.primary+'/10':'—'}</div>
@@ -1401,7 +1400,7 @@ function renderAgent(main){
       <div class="home-row" data-id="${p.id}">
         <img class="thumb" src="${thumbFor(p)}">
         <div class="info">
-          <div class="addr">${p.address} ${p.favorite?'⭐':''}</div>
+          <div class="addr">${fullAddr(p)} ${p.favorite?'⭐':''}</div>
           <div class="sub">Rating ${p.ratings.primary||'–'}/10 · ${p.offerStatus||'No offer yet'}</div>
         </div>
       </div>`).join('') : `<div class="muted">Nothing shared yet.</div>`}
