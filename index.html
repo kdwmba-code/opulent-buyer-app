@@ -566,6 +566,71 @@ async function estimateTravel(fromP, toP){
   return { miles: miles.toFixed(1), minutes };
 }
 
+/* ============ "TIME LEFT AT THIS HOME" COUNTDOWN ============ */
+// "Currently at" a home = checked in, not cancelled, and the next showing on the schedule
+// hasn't been checked into yet — that's what makes the badge disappear once the group moves on,
+// without needing a separate explicit "check out" step.
+function isCurrentlyAt(p){
+  if(!p || !p.checkedIn || p.cancelled) return false;
+  const active = [...DB.properties].filter(x=>!x.cancelled).sort((a,b)=> new Date(a.showingDate)-new Date(b.showingDate));
+  const idx = active.findIndex(x=>x.id===p.id);
+  const next = idx>=0 ? active[idx+1] : null;
+  return !next || !next.checkedIn;
+}
+function nextActiveShowing(p){
+  const active = [...DB.properties].filter(x=>!x.cancelled).sort((a,b)=> new Date(a.showingDate)-new Date(b.showingDate));
+  const idx = active.findIndex(x=>x.id===p.id);
+  return idx>=0 ? active[idx+1] : null;
+}
+// Leave-by time = next showing's scheduled start minus the estimated drive time between here and there.
+function leaveByInfo(p){
+  const next = nextActiveShowing(p);
+  if(!next || !next.showingDate) return null;
+  const key = `${p.id}_${next.id}`;
+  const travel = travelCache[key];
+  const travelMinutes = travel ? travel.minutes : 12; // rough buffer until the real estimate resolves
+  const leaveBy = new Date(new Date(next.showingDate).getTime() - travelMinutes*60000);
+  return { next, leaveBy, travelMinutes, hasEstimate: !!travel };
+}
+function fmtCountdown(ms){
+  const overdue = ms < 0;
+  const abs = Math.abs(ms);
+  const mins = Math.round(abs/60000);
+  const h = Math.floor(mins/60), m = mins%60;
+  const txt = h>0 ? `${h}h ${m}m` : `${m} min`;
+  return overdue ? `${txt} over` : txt;
+}
+// Renders the badge shell; the live countdown text itself is filled in/refreshed by
+// updateAllTimerBadges() on an interval, so the schedule/dashboard don't need a full re-render every tick.
+function timerBadgeHTML(p){
+  if(!isCurrentlyAt(p)) return '';
+  const info = leaveByInfo(p);
+  if(!info){
+    return `<div class="muted" style="font-size:12px;margin-top:4px;">🏁 Last showing of the day — no more stops after this one.</div>`;
+  }
+  return `<div class="timer-badge" data-leaveby="${info.leaveBy.toISOString()}" data-nextaddr="${fullAddr(info.next).replace(/"/g,'&quot;')}" style="font-size:12px;font-weight:700;margin-top:4px;"></div>`;
+}
+function updateAllTimerBadges(){
+  document.querySelectorAll('.timer-badge[data-leaveby]').forEach(node=>{
+    const leaveBy = new Date(node.dataset.leaveby);
+    const diff = leaveBy - new Date();
+    const addr = node.dataset.nextaddr || 'next showing';
+    if(diff < 0){
+      node.style.color = 'var(--danger)';
+      node.textContent = `⏰ Leave now — ${fmtCountdown(diff)} to reach ${addr}`;
+    } else if(diff < 5*60000){
+      node.style.color = 'var(--danger)';
+      node.textContent = `⏰ Leave in ${fmtCountdown(diff)} to reach ${addr}`;
+    } else if(diff < 15*60000){
+      node.style.color = 'var(--warn)';
+      node.textContent = `⏱ Leave in ${fmtCountdown(diff)} to reach ${addr}`;
+    } else {
+      node.style.color = 'var(--green)';
+      node.textContent = `⏱ ${fmtCountdown(diff)} left before you should head to ${addr}`;
+    }
+  });
+}
+
 /* ============ ESTIMATED MONTHLY COST (mortgage + taxes + insurance) ============ */
 // Rough estimates for comparison purposes only — NOT a loan quote. Actual payment depends on the
 // buyer's final locked rate, lender fees, escrow requirements, and actual insurance quote.
@@ -636,6 +701,7 @@ function render(){
   main.innerHTML = '';
   const renderers = { dashboard:renderDashboard, schedule:renderSchedule, favorites:renderFavorites, compare:renderCompare, agent:renderAgent, home:renderHome };
   (renderers[state.view]||renderDashboard)(main);
+  updateAllTimerBadges();
 }
 
 /* ============ DASHBOARD ============ */
@@ -643,6 +709,20 @@ function renderDashboard(main){
   const upcoming = DB.properties.filter(p=>!p.checkedIn && !p.cancelled).sort((a,b)=> new Date(a.showingDate)-new Date(b.showingDate));
   const active = DB.properties.filter(p=>p.checkedIn);
   const offersInProgress = DB.properties.filter(p=>p.offerStatus && p.offerStatus!=='Accepted' && p.offerStatus!=='Rejected' && p.offerStatus!=='Withdrawn');
+  const currentlyAt = DB.properties.find(p=>isCurrentlyAt(p));
+
+  if(currentlyAt){
+    main.appendChild(el(`<div class="card" style="border-color:var(--green-dim);">
+      <h3>You're Here Now</h3>
+      <div class="home-row" data-id="${currentlyAt.id}">
+        <img class="thumb" src="${thumbFor(currentlyAt)}">
+        <div class="info">
+          <div class="addr">${fullAddr(currentlyAt)}</div>
+          ${timerBadgeHTML(currentlyAt)}
+        </div>
+      </div>
+    </div>`));
+  }
 
   main.appendChild(el(`
     <div class="card">
@@ -746,6 +826,7 @@ function renderSchedule(main){
           <div class="sub">${fmtPrice(p.price)}${priceChangeHTML(p)} · ${p.beds||'–'}bd/${p.baths||'–'}ba · ${p.sqft?p.sqft.toLocaleString()+' sqft':'–'}</div>
           ${estimateMonthly(p) ? `<div class="sub" style="color:var(--green);">~${fmtMonthly(estimateMonthly(p).total)}/mo est.</div>` : ''}
           <div class="sub">${fmtShowing(p)} ${p.cancelled?'· <span style="color:var(--danger)">Cancelled</span>':p.checkedIn?'· <span style="color:var(--green)">Checked in</span>':''}</div>
+          ${timerBadgeHTML(p)}
         </div>
         ${state.agentMode ? `
           <div style="display:flex;flex-direction:column;gap:4px;">
@@ -917,6 +998,7 @@ function renderHome(main){
           </div>
           <div class="muted">${fmtPrice(p.price)}${priceChangeHTML(p)} · ${p.beds||'–'}bd/${p.baths||'–'}ba · ${p.sqft?p.sqft.toLocaleString():'–'} sqft</div>
           <div class="muted">MLS# ${p.mls||'—'} · ${fmtShowing(p)} ${p.cancelled?'· <span style="color:var(--danger)">Cancelled</span>':''}</div>
+          ${timerBadgeHTML(p)}
           ${dataAsOfHTML(p)}
         </div>
         <div class="score-badge ${p.ratings.primary?'':'empty'}" style="${p.ratings.primary?`background:${scoreColor(p.ratings.primary)};color:#06210f;`:''}">${p.ratings.primary||'–'}</div>
@@ -1472,6 +1554,7 @@ function renderAgent(main){
 
 /* ============ INIT ============ */
 initDB();
+setInterval(updateAllTimerBadges, 15000); // keep "time left" countdowns live without a full re-render
 </script>
 </body>
 </html>
