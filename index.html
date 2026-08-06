@@ -379,6 +379,14 @@ function normalizeDB(){
   if(!DB.financing) DB.financing = { loanType:'', downPaymentPct:null, interestRate:null, loanTermYears:30 };
   (DB.properties||[]).forEach(p=>{
     if((p.annualTax==null) && KNOWN_TAX[p.id]!=null) p.annualTax = KNOWN_TAX[p.id];
+    // One-time correction for rows already saved to Supabase with the stale price they were
+    // first seeded with (e.g. p1 was originally saved at $599,900 before the real price-drop
+    // to $549,900 was known). Applies once via the flag so it never overwrites a price an
+    // agent deliberately edits afterward.
+    if(!p.priceCorrected && KNOWN_PRICE[p.id]!=null && p.price !== KNOWN_PRICE[p.id]){
+      p.price = KNOWN_PRICE[p.id];
+    }
+    if(!p.priceCorrected) p.priceCorrected = true;
     const meta = KNOWN_PRICE_META[p.id];
     if(meta){
       if(p.priorPrice===undefined) p.priorPrice = meta.priorPrice;
