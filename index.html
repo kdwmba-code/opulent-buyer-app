@@ -336,7 +336,7 @@ function seedDB(){
         priorPrice:565000, priceAsOf:'2026-08-05', dataAsOf:'2026-08-05',
         showingDate:'2026-08-06T15:45', durationMinutes:15, checkedIn:false,
         photos:[], subScores:{}, ratings:{}, prosCons:[], voiceNotes:[],
-        favorite:false, rank:null,
+        favorite:false, rank:null, videoLink:'', guests:[],
         offerStatus:null, offerHistory:[], offerTerms:{}, documents:[], agentNotes:'', sharedWithAgent:false
       },
       {
@@ -344,7 +344,7 @@ function seedDB(){
         priorPrice:null, priceAsOf:'2026-08-05', dataAsOf:'2026-08-05',
         showingDate:'2026-08-06T16:30', durationMinutes:15, checkedIn:false,
         photos:[], subScores:{}, ratings:{}, prosCons:[], voiceNotes:[],
-        favorite:false, rank:null,
+        favorite:false, rank:null, videoLink:'', guests:[],
         offerStatus:null, offerHistory:[], offerTerms:{}, documents:[], agentNotes:'', sharedWithAgent:false
       },
       {
@@ -352,7 +352,7 @@ function seedDB(){
         priorPrice:null, priceAsOf:'2026-08-05', dataAsOf:'2026-08-05',
         showingDate:'2026-08-06T17:15', durationMinutes:null, checkedIn:false,
         photos:[], subScores:{}, ratings:{}, prosCons:[], voiceNotes:[],
-        favorite:false, rank:null,
+        favorite:false, rank:null, videoLink:'', guests:[],
         offerStatus:null, offerHistory:[], offerTerms:{}, documents:[], agentNotes:'', sharedWithAgent:false
       }
     ]
@@ -387,6 +387,8 @@ function normalizeDB(){
       p.price = KNOWN_PRICE[p.id];
     }
     if(!p.priceCorrected) p.priceCorrected = true;
+    if(p.videoLink===undefined) p.videoLink = '';
+    if(!p.guests) p.guests = [];
     const meta = KNOWN_PRICE_META[p.id];
     if(meta){
       if(p.priorPrice===undefined) p.priorPrice = meta.priorPrice;
@@ -455,12 +457,24 @@ function getProp(id){ return DB.properties.find(p=>p.id===id); }
 function uid(){ return 'p'+Math.random().toString(36).slice(2,9); }
 
 /* ============ ROUTER ============ */
-let state = { view:'dashboard', propId:null, compareIds:[], agentMode:false };
+let state = { view:'dashboard', propId:null, compareIds:[], agentMode:false, guestMode:false, guestId:null, guestShowingId:null };
 
 function go(view, opts={}){
   state.view = view;
   Object.assign(state, opts);
   render();
+}
+
+// A ?guest=1 link (optionally with &showing=<id>) puts this browser into a stripped-down,
+// single-purpose guest flow instead of the normal buyer app — used for the up-to-4 remote
+// guests invited to a virtual tour. Rejoining the same link after a reload/refresh skips
+// straight back to their rating screen via the guestId/guestShowingId saved locally.
+function initGuestModeFromURL(){
+  const params = new URLSearchParams(location.search);
+  if(params.get('guest') !== '1') return;
+  state.guestMode = true;
+  state.guestShowingId = params.get('showing') || localStorage.getItem('guestShowingId') || null;
+  state.guestId = localStorage.getItem('guestId') || null;
 }
 
 document.querySelectorAll('.bottomnav button').forEach(btn=>{
@@ -674,6 +688,7 @@ function openModal(html){
 
 /* ============ RENDER: SHELL ============ */
 function render(){
+  if(state.guestMode){ renderGuestFlow(); return; }
   document.querySelectorAll('.bottomnav button').forEach(b=>{
     b.classList.toggle('active', b.dataset.view===state.view);
   });
@@ -1014,6 +1029,9 @@ function renderHome(main){
       ` : ''}
     </div>
   `));
+
+  main.appendChild(el(remoteGuestsCardHTML(p)));
+  bindRemoteGuestsCard(main, p.id);
 
   // Estimated monthly cost
   const est = estimateMonthly(p);
@@ -1446,6 +1464,7 @@ function renderCompare(main){
         <div class="lbl"></div><div class="val">${dataAsOfHTML(p)}</div>
         <div class="lbl">Your rating</div><div class="val">${p.ratings.primary?p.ratings.primary+'/10':'—'}</div>
         <div class="lbl">${DB.profile.partnerName}'s rating</div><div class="val">${p.ratings.partner?p.ratings.partner+'/10':'—'}</div>
+        ${(p.guests||[]).map(g=>`<div class="lbl">${g.name}'s rating</div><div class="val">${g.rating?g.rating+'/10':'—'}</div>`).join('')}
         <div class="lbl">Beds/Baths</div><div class="val">${p.beds||'–'}bd / ${p.baths||'–'}ba</div>
         <div class="lbl">Sqft</div><div class="val">${p.sqft?p.sqft.toLocaleString():'–'}</div>
         <div class="lbl">Pros</div><div class="val">${p.prosCons.filter(x=>x.type==='pro').map(x=>x.text).join(', ')||'—'}</div>
@@ -1552,7 +1571,171 @@ function renderAgent(main){
   });
 }
 
+/* ============ VIRTUAL TOUR: REMOTE GUESTS ============ */
+function guestInviteLink(p){
+  const base = location.origin + location.pathname;
+  return `${base}?guest=1&showing=${p.id}`;
+}
+function copyGuestInvite(id){
+  const p = getProp(id);
+  const link = guestInviteLink(p);
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(link).then(()=> toast('Invite link copied — share it with up to 4 guests')).catch(()=> toast(link));
+  } else {
+    toast(link);
+  }
+}
+function openSetVideoLink(id){
+  const p = getProp(id);
+  openModal(`
+    <button class="closex" onclick="closeModal()">✕</button>
+    <h3>Video Call Link</h3>
+    <div class="muted" style="margin-bottom:10px;">Start a Zoom, FaceTime, or Google Meet call yourself, then paste the join link here so remote guests can tap straight into it.</div>
+    <label>Join Link</label>
+    <input id="videoLinkInput" placeholder="https://..." value="${p.videoLink||''}">
+    <button class="btn" id="saveVideoLink" style="margin-top:10px;">Save</button>
+    ${p.videoLink ? `<button class="btn ghost" id="clearVideoLink" style="margin-top:8px;">Remove Link</button>` : ''}
+  `);
+  document.getElementById('saveVideoLink').addEventListener('click', ()=>{
+    p.videoLink = document.getElementById('videoLinkInput').value.trim();
+    save(); closeModal(); render();
+    toast('Video call link saved');
+  });
+  const clearBtn = document.getElementById('clearVideoLink');
+  if(clearBtn) clearBtn.addEventListener('click', ()=>{
+    p.videoLink = '';
+    save(); closeModal(); render();
+  });
+}
+// "Remote Guests" card shown on Home Detail — invite link, video link, and each joined guest's rating.
+function remoteGuestsCardHTML(p){
+  const guests = p.guests || [];
+  return `<div class="card">
+    <h3 style="margin:0 0 6px;">Remote Guests (${guests.length}/4)</h3>
+    <div class="muted" style="margin-bottom:10px;">Invite up to 4 people to join this showing live and share their own rating — great for a spouse, parent, or friend who couldn't be here in person.</div>
+    <div class="row" style="gap:8px;flex-wrap:wrap;">
+      <button class="btn small ghost" id="copyGuestInviteBtn">🔗 Copy Guest Invite Link</button>
+      <button class="btn small ghost" id="setVideoLinkBtn">${p.videoLink ? '🎥 Edit Video Link' : '🎥 Set Video Call Link'}</button>
+      ${p.videoLink ? `<a class="btn small" href="${p.videoLink}" target="_blank">▶ Join Video</a>` : ''}
+    </div>
+    ${guests.length ? `
+      <div style="margin-top:12px;">
+        ${guests.map(g=>`
+          <div class="row" style="justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1e1e1e;">
+            <div>${g.name}</div>
+            <div class="score-badge ${g.rating?'':'empty'}" style="${g.rating?`background:${scoreColor(g.rating)};color:#06210f;`:''}">${g.rating||'–'}</div>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+  </div>`;
+}
+function bindRemoteGuestsCard(main, id){
+  const copyBtn = document.getElementById('copyGuestInviteBtn');
+  if(copyBtn) copyBtn.addEventListener('click', ()=> copyGuestInvite(id));
+  const videoBtn = document.getElementById('setVideoLinkBtn');
+  if(videoBtn) videoBtn.addEventListener('click', ()=> openSetVideoLink(id));
+}
+
+function findGuest(propId, guestId){
+  const p = getProp(propId);
+  if(!p) return null;
+  const guest = (p.guests||[]).find(g=>g.id===guestId);
+  return guest ? { p, guest } : null;
+}
+function submitGuestJoin(){
+  const nameInput = document.getElementById('guestNameInput');
+  const name = nameInput.value.trim();
+  if(!name){ toast('Enter your name to join'); return; }
+  let propId = state.guestShowingId;
+  const sel = document.getElementById('guestShowingSelect');
+  if(sel) propId = sel.value;
+  const p = getProp(propId);
+  if(!p){ toast('Pick a showing to join'); return; }
+  if((p.guests||[]).length >= 4){ toast('This tour already has 4 remote guests joined'); return; }
+  const id = 'g'+Math.random().toString(36).slice(2,9);
+  p.guests = p.guests || [];
+  p.guests.push({ id, name, checkedIn:true, rating:null, joinedAt:new Date().toISOString() });
+  save();
+  state.guestId = id;
+  state.guestShowingId = propId;
+  localStorage.setItem('guestId', id);
+  localStorage.setItem('guestShowingId', propId);
+  render();
+}
+function renderGuestJoinStep(main){
+  const choices = [...DB.properties].filter(p=>!p.cancelled);
+  const activeOne = choices.find(p=>isCurrentlyAt(p));
+  main.appendChild(el(`
+    <div class="card">
+      <h3>Join the Virtual Tour</h3>
+      <div class="muted" style="margin-bottom:10px;">Enter your name to check in and share your own reaction to the home — it counts alongside everyone else's.</div>
+      <label>Your Name</label>
+      <input id="guestNameInput" placeholder="e.g. Grandma Rose">
+      ${!state.guestShowingId ? `
+        <label style="margin-top:10px;">Which showing?</label>
+        <select id="guestShowingSelect">
+          ${choices.map(p=>`<option value="${p.id}" ${activeOne && p.id===activeOne.id ? 'selected':''}>${fullAddr(p)}${activeOne && p.id===activeOne.id ? ' (happening now)':''}</option>`).join('')}
+        </select>
+      ` : `<div class="muted" style="margin-top:10px;">Joining: <strong style="color:var(--white)">${fullAddr(getProp(state.guestShowingId))}</strong></div>`}
+      <button class="btn" id="guestJoinBtn" style="margin-top:14px;">Join</button>
+    </div>
+  `));
+  document.getElementById('guestJoinBtn').addEventListener('click', submitGuestJoin);
+}
+function renderGuestTourStep(main, p, guest){
+  main.appendChild(el(`
+    <div class="card">
+      <img class="thumb" style="width:100%;height:160px;object-fit:cover;border-radius:8px;" src="${thumbFor(p)}">
+      <h3 style="margin-top:10px;">${fullAddr(p)}</h3>
+      <div class="muted">${fmtPrice(p.price)} · ${p.beds||'–'}bd/${p.baths||'–'}ba · ${p.sqft?p.sqft.toLocaleString():'–'} sqft</div>
+      ${p.videoLink
+        ? `<a class="btn" style="margin-top:10px;display:inline-block;text-decoration:none;text-align:center;" href="${p.videoLink}" target="_blank">▶ Join Video Call</a>`
+        : `<div class="muted" style="margin-top:10px;">No video call link has been set yet — ask whoever invited you to add one.</div>`}
+    </div>
+  `));
+  main.appendChild(el(`
+    <div class="card">
+      <h3>You're joined as ${guest.name}</h3>
+      <div class="muted" style="margin-bottom:10px;">Give your honest reaction — your score counts alongside everyone else's.</div>
+      <input type="range" min="1" max="10" value="${guest.rating||5}" id="guestRatingSlider" style="--pct:${((guest.rating||5)-1)/9*100}%">
+      <div class="score-badge" id="guestRatingBadge" style="background:${scoreColor(guest.rating||5)};color:#06210f;">${guest.rating||5}</div>
+      <button class="btn" id="submitGuestRating" style="margin-top:10px;">${guest.rating ? 'Update My Rating' : 'Submit My Rating'}</button>
+      ${guest.rating ? `<div class="muted" style="margin-top:8px;color:var(--green);">✓ Your rating has been shared with the group</div>` : ''}
+    </div>
+  `));
+  const slider = document.getElementById('guestRatingSlider');
+  slider.addEventListener('input', ()=>{
+    document.getElementById('guestRatingBadge').textContent = slider.value;
+    document.getElementById('guestRatingBadge').style.background = scoreColor(Number(slider.value));
+    slider.style.setProperty('--pct', ((slider.value-1)/9*100)+'%');
+  });
+  document.getElementById('submitGuestRating').addEventListener('click', ()=>{
+    guest.rating = Number(slider.value);
+    save();
+    render();
+    toast('Thanks — your rating has been shared with the group');
+  });
+}
+function renderGuestFlow(){
+  document.getElementById('backBtn').style.display = 'none';
+  document.getElementById('agentModeBtn').style.display = 'none';
+  const nav = document.querySelector('.bottomnav');
+  if(nav) nav.style.display = 'none';
+  document.getElementById('fab').style.display = 'none';
+  document.getElementById('pageTitle').textContent = 'Virtual Tour Guest';
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+  const found = (state.guestId && state.guestShowingId) ? findGuest(state.guestShowingId, state.guestId) : null;
+  if(found){
+    renderGuestTourStep(main, found.p, found.guest);
+  } else {
+    renderGuestJoinStep(main);
+  }
+}
+
 /* ============ INIT ============ */
+initGuestModeFromURL();
 initDB();
 setInterval(updateAllTimerBadges, 15000); // keep "time left" countdowns live without a full re-render
 </script>
