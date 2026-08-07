@@ -506,11 +506,65 @@ async function initDB(){
     localStorage.setItem(DB_KEY, JSON.stringify(DB));
     syncStatus = 'live';
     subscribeRealtime();
+    loadLeads();
   } catch(e){
     console.warn('Supabase unavailable, staying in offline mode', e);
     syncStatus = 'offline';
   }
   render();
+}
+
+let leadsCache = [];
+async function loadLeads(){
+  if(!sb) return;
+  try{
+    const { data, error } = await sb.from('buyer_app_state').select('id,data').like('id','lead-%');
+    if(error) throw error;
+    leadsCache = (data||[]).filter(r=>r.data && r.data.isLead && r.data.leadStatus==='new')
+      .sort((a,b)=> new Date(b.data.leadSubmittedAt||0) - new Date(a.data.leadSubmittedAt||0));
+    render();
+  } catch(e){
+    console.warn('Could not load leads', e);
+  }
+}
+
+async function convertLead(leadId){
+  const lead = leadsCache.find(r=>r.id===leadId);
+  if(!lead) return;
+  const profile = { ...(lead.data.profile||{}), agentName: DB.profile.agentName, agentEmail: DB.profile.agentEmail };
+  const intake = lead.data.intake || blankIntake();
+  const slug = slugify(profile.buyerName) + '-' + Math.random().toString(36).slice(2,6);
+  const newData = {
+    profile, intake,
+    financing: lead.data.financing || { loanType:'', downPaymentPct:null, interestRate:null, loanTermYears:30 },
+    properties: []
+  };
+  try{
+    if(sb){
+      const { error: insErr } = await sb.from('buyer_app_state').insert({ id: slug, data: newData });
+      if(insErr) throw insErr;
+      await sb.from('buyer_app_state').update({ data: { ...lead.data, leadStatus:'converted' } }).eq('id', leadId);
+    }
+    leadsCache = leadsCache.filter(r=>r.id!==leadId);
+    const link = location.origin + location.pathname + '?client=' + slug;
+    if(navigator.clipboard) navigator.clipboard.writeText(link).catch(()=>{});
+    alert('Client created! Link copied to clipboard:\n\n' + link);
+    render();
+  } catch(e){
+    console.warn('Convert lead failed', e);
+    alert('Could not convert this lead right now — check connection and try again.');
+  }
+}
+
+async function dismissLead(leadId){
+  const lead = leadsCache.find(r=>r.id===leadId);
+  if(!lead) return;
+  leadsCache = leadsCache.filter(r=>r.id!==leadId);
+  render();
+  if(sb){
+    try{ await sb.from('buyer_app_state').update({ data: { ...lead.data, leadStatus:'dismissed' } }).eq('id', leadId); }
+    catch(e){ console.warn('Could not persist lead dismissal', e); }
+  }
 }
 
 function subscribeRealtime(){
@@ -1741,6 +1795,31 @@ function renderAgent(main){
       <strong>${DB.profile.agentName}</strong>. Toggle sharing per-home from that home's detail page.
     </div>
   `));
+
+  if(state.agentMode && leadsCache.length){
+    main.appendChild(el(`
+      <div class="card" style="border-color:var(--green-dim);">
+        <h3>🆕 New Leads (${leadsCache.length})</h3>
+        <div class="muted" style="margin-bottom:8px;">Submitted from the public website intake form.</div>
+        ${leadsCache.map(r=>{
+          const p = r.data.profile||{}; const ik2 = r.data.intake||{};
+          return `<div class="home-row" style="align-items:flex-start;">
+            <div class="info" style="flex:1;">
+              <div class="addr">${p.buyerName||'Unknown'}</div>
+              <div class="sub">${ik2.targetArea||'—'} · ${ik2.budgetMax?fmtPrice(ik2.budgetMax):'No budget set'}</div>
+              <div class="muted" style="font-size:12px;">${p.buyerEmail||''}${p.buyerPhone?(' · '+p.buyerPhone):''}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <button class="btn small convertLeadBtn" data-leadid="${r.id}">Convert</button>
+              <button class="btn small ghost dismissLeadBtn" data-leadid="${r.id}">Dismiss</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    `));
+    main.querySelectorAll('.convertLeadBtn').forEach(b=>b.addEventListener('click', ()=>convertLead(b.dataset.leadid)));
+    main.querySelectorAll('.dismissLeadBtn').forEach(b=>b.addEventListener('click', ()=>dismissLead(b.dataset.leadid)));
+  }
 
   const ik = DB.intake || {};
   const hasIntake = ik.targetArea || ik.budgetMax || ik.minBeds || ik.minBaths || ik.minSqft || ik.needsYard || ik.needsParking || ik.notes;
