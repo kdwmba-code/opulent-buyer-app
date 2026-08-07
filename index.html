@@ -335,6 +335,7 @@ function seedDemoDB(){
       partnerName:'Demo Partner', partnerEmail:'demo.partner@example.com', partnerPhone:'555-0101',
       agentName:'Keenan D. Washington, Sr.', agentEmail:'kdwmba@gmail.com'
     },
+    intake: { targetArea:'Sample City, PA', budgetMax:500000, minBeds:3, minBaths:2, minSqft:1600, needsYard:true, needsParking:true, notes:'Placeholder demo criteria.' },
     financing:{ loanType:'', downPaymentPct:null, interestRate:null, loanTermYears:30 },
     properties: [
       {
@@ -368,21 +369,31 @@ function seedDemoDB(){
 // A brand-new client created via "+ New Client" — starts with no properties (the agent adds them
 // via the existing "+" Add Showing flow) and picks up whatever intake info was entered in that
 // modal, handed off through sessionStorage across the redirect so it never sits in the URL.
+// Blank shape for what a buyer is searching for — captured once up front (ideally at intake) so
+// the rest of the app has something to measure homes against, instead of criteria living only in
+// the agent's head. Kept as its own object (like financing) so it's easy to show/edit anywhere.
+function blankIntake(){
+  return { targetArea:'', budgetMax:null, minBeds:null, minBaths:null, minSqft:null, needsYard:false, needsParking:false, notes:'' };
+}
+
 function seedNewClientDB(){
   let profile = {
     buyerName:'', buyerEmail:'', buyerPhone:'',
     partnerName:'', partnerEmail:'', partnerPhone:'',
     agentName:'Keenan D. Washington, Sr.', agentEmail:'kdwmba@gmail.com'
   };
+  let intake = blankIntake();
   try{
     const pending = JSON.parse(sessionStorage.getItem('pendingNewClientIntake')||'null');
     if(pending && pending.slug === CLIENT_ID){
       profile = { ...profile, ...pending.profile };
+      if(pending.intake) intake = { ...intake, ...pending.intake };
       sessionStorage.removeItem('pendingNewClientIntake');
     }
   }catch(e){ console.warn('Could not read pending new-client intake', e); }
   return {
     profile,
+    intake,
     financing:{ loanType:'', downPaymentPct:null, interestRate:null, loanTermYears:30 },
     properties: []
   };
@@ -400,6 +411,7 @@ function seedDB(){
       partnerName:'', partnerEmail:'', partnerPhone:'',
       agentName:'Keenan D. Washington, Sr.', agentEmail:'kdwmba@gmail.com'
     },
+    intake: blankIntake(),
     // Buyer's financing profile, from their preapproval. Agent-editable only. Blank until set —
     // no cost estimate is shown anywhere until this is filled in.
     financing:{ loanType:'', downPaymentPct:null, interestRate:null, loanTermYears:30 },
@@ -450,6 +462,7 @@ let DB = null;
 function normalizeDB(){
   if(!DB) return;
   if(!DB.financing) DB.financing = { loanType:'', downPaymentPct:null, interestRate:null, loanTermYears:30 };
+  if(!DB.intake) DB.intake = blankIntake();
   (DB.properties||[]).forEach(p=>{
     if((p.annualTax==null) && KNOWN_TAX[p.id]!=null) p.annualTax = KNOWN_TAX[p.id];
     // One-time correction for rows already saved to Supabase with the stale price they were
@@ -571,6 +584,8 @@ function openNewClientModal(){
     <button class="closex" onclick="closeModal()">✕</button>
     <h3>Start a New Client</h3>
     <div class="muted" style="margin-bottom:10px;">Creates a brand-new tour link for this client, completely separate from every other client's data. You'll be taken straight to it — add their first showing from the schedule's + button once you're there.</div>
+
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.5px;color:var(--green);margin:10px 0 4px;">CONTACT INFO</div>
     <label>Client / Family Name</label><input id="ncName" placeholder="e.g. Thornton">
     <label>Buyer Name</label><input id="ncBuyerName" placeholder="Full name">
     <label>Buyer Email</label><input id="ncBuyerEmail" placeholder="name@email.com">
@@ -578,7 +593,21 @@ function openNewClientModal(){
     <label>Partner Name (optional)</label><input id="ncPartnerName" placeholder="Full name">
     <label>Partner Email (optional)</label><input id="ncPartnerEmail" placeholder="name@email.com">
     <label>Partner Phone (optional)</label><input id="ncPartnerPhone" placeholder="555-555-5555">
-    <button class="btn" id="ncCreate" style="margin-top:10px;">Create Client & Go to Their Tour</button>
+
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.5px;color:var(--green);margin:14px 0 4px;">WHAT THEY'RE LOOKING FOR</div>
+    <label>Target Area</label><input id="ncArea" placeholder="e.g. Wilmington, DE or New Castle County, DE">
+    <label>Max Budget</label><input id="ncBudget" type="number" placeholder="450000">
+    <div class="row">
+      <div><label>Min Bedrooms</label><input id="ncMinBeds" type="number" placeholder="3"></div>
+      <div><label>Min Bathrooms</label><input id="ncMinBaths" type="number" placeholder="2"></div>
+      <div><label>Min Sqft</label><input id="ncMinSqft" type="number" placeholder="1600"></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px;"><input id="ncYard" type="checkbox" style="width:auto;"> Needs a yard</label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:6px;"><input id="ncParking" type="checkbox" style="width:auto;"> Needs dedicated parking</label>
+    <label style="margin-top:10px;">Other must-haves / notes</label>
+    <input id="ncNotes" placeholder="e.g. good schools, home office, no HOA">
+
+    <button class="btn" id="ncCreate" style="margin-top:14px;">Create Client & Go to Their Tour</button>
   `);
   document.getElementById('ncCreate').addEventListener('click', ()=>{
     const name = document.getElementById('ncName').value.trim();
@@ -592,7 +621,17 @@ function openNewClientModal(){
       partnerEmail: document.getElementById('ncPartnerEmail').value.trim(),
       partnerPhone: document.getElementById('ncPartnerPhone').value.trim(),
     };
-    sessionStorage.setItem('pendingNewClientIntake', JSON.stringify({ slug, profile }));
+    const intake = {
+      targetArea: document.getElementById('ncArea').value.trim(),
+      budgetMax: Number(document.getElementById('ncBudget').value)||null,
+      minBeds: Number(document.getElementById('ncMinBeds').value)||null,
+      minBaths: Number(document.getElementById('ncMinBaths').value)||null,
+      minSqft: Number(document.getElementById('ncMinSqft').value)||null,
+      needsYard: document.getElementById('ncYard').checked,
+      needsParking: document.getElementById('ncParking').checked,
+      notes: document.getElementById('ncNotes').value.trim(),
+    };
+    sessionStorage.setItem('pendingNewClientIntake', JSON.stringify({ slug, profile, intake }));
     location.href = location.origin + location.pathname + '?client=' + encodeURIComponent(slug);
   });
 }
@@ -1660,6 +1699,40 @@ function openEditFinancing(){
   });
 }
 
+function openEditIntake(){
+  const ik = DB.intake || blankIntake();
+  openModal(`
+    <button class="closex" onclick="closeModal()">✕</button>
+    <h3>What They're Looking For</h3>
+    <div class="muted" style="margin-bottom:10px;">Captured once up front so the rest of the app knows what this buyer actually needs.</div>
+    <label>Target Area</label><input id="ikArea" placeholder="e.g. Wilmington, DE" value="${ik.targetArea||''}">
+    <label>Max Budget</label><input id="ikBudget" type="number" placeholder="450000" value="${ik.budgetMax!=null?ik.budgetMax:''}">
+    <div class="row">
+      <div><label>Min Bedrooms</label><input id="ikMinBeds" type="number" placeholder="3" value="${ik.minBeds!=null?ik.minBeds:''}"></div>
+      <div><label>Min Bathrooms</label><input id="ikMinBaths" type="number" placeholder="2" value="${ik.minBaths!=null?ik.minBaths:''}"></div>
+      <div><label>Min Sqft</label><input id="ikMinSqft" type="number" placeholder="1600" value="${ik.minSqft!=null?ik.minSqft:''}"></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px;"><input id="ikYard" type="checkbox" style="width:auto;" ${ik.needsYard?'checked':''}> Needs a yard</label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:6px;"><input id="ikParking" type="checkbox" style="width:auto;" ${ik.needsParking?'checked':''}> Needs dedicated parking</label>
+    <label style="margin-top:10px;">Other must-haves / notes</label>
+    <input id="ikNotes" placeholder="e.g. good schools, home office, no HOA" value="${ik.notes||''}">
+    <button class="btn" id="ikSave" style="margin-top:10px;">Save Search Criteria</button>
+  `);
+  document.getElementById('ikSave').addEventListener('click', ()=>{
+    DB.intake = {
+      targetArea: document.getElementById('ikArea').value.trim(),
+      budgetMax: Number(document.getElementById('ikBudget').value)||null,
+      minBeds: Number(document.getElementById('ikMinBeds').value)||null,
+      minBaths: Number(document.getElementById('ikMinBaths').value)||null,
+      minSqft: Number(document.getElementById('ikMinSqft').value)||null,
+      needsYard: document.getElementById('ikYard').checked,
+      needsParking: document.getElementById('ikParking').checked,
+      notes: document.getElementById('ikNotes').value.trim(),
+    };
+    save(); closeModal(); render();
+  });
+}
+
 function renderAgent(main){
   const shared = DB.properties.filter(p=>p.sharedWithAgent);
   main.appendChild(el(`
@@ -1668,6 +1741,28 @@ function renderAgent(main){
       <strong>${DB.profile.agentName}</strong>. Toggle sharing per-home from that home's detail page.
     </div>
   `));
+
+  const ik = DB.intake || {};
+  const hasIntake = ik.targetArea || ik.budgetMax || ik.minBeds || ik.minBaths || ik.minSqft || ik.needsYard || ik.needsParking || ik.notes;
+  main.appendChild(el(`
+    <div class="card">
+      <h3>What They're Looking For</h3>
+      ${hasIntake ? `
+        <div class="grid2">
+          <div><div class="muted">Target area</div><div>${ik.targetArea||'—'}</div></div>
+          <div><div class="muted">Max budget</div><div>${ik.budgetMax?fmtPrice(ik.budgetMax):'—'}</div></div>
+          <div><div class="muted">Min bedrooms</div><div>${ik.minBeds!=null?ik.minBeds:'—'}</div></div>
+          <div><div class="muted">Min bathrooms</div><div>${ik.minBaths!=null?ik.minBaths:'—'}</div></div>
+          <div><div class="muted">Min sqft</div><div>${ik.minSqft!=null?ik.minSqft.toLocaleString():'—'}</div></div>
+          <div><div class="muted">Needs yard / parking</div><div>${ik.needsYard?'Yard ✓':''} ${ik.needsParking?'Parking ✓':''}${(!ik.needsYard&&!ik.needsParking)?'—':''}</div></div>
+        </div>
+        ${ik.notes ? `<div class="muted" style="margin-top:8px;">Notes: ${ik.notes}</div>` : ''}
+      ` : `<div class="muted">No search criteria captured yet.</div>`}
+      ${state.agentMode ? `<button class="btn secondary" id="editIntakeBtn" style="margin-top:10px;">${hasIntake?'Edit':'Capture'} Search Criteria</button>` : ''}
+    </div>
+  `));
+  const editIntakeBtn = main.querySelector('#editIntakeBtn');
+  if(editIntakeBtn) editIntakeBtn.addEventListener('click', openEditIntake);
 
   const f = DB.financing || {};
   main.appendChild(el(`
