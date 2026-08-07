@@ -309,15 +309,62 @@
 /* ============ DATA LAYER (Supabase-backed, real-time synced) ============ */
 const SUPABASE_URL = 'https://oiszuqcimrciypmuzkdt.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_pFtPwv81osfU119QgAJnPQ_0mwkEH85';
-const ROW_ID = 'thornton-tour';
-const DB_KEY = 'opulent_buyer_app_v2'; // used only as an offline fallback cache
+// ?client=<id> on the URL switches which Supabase row (and which seed data) this browser loads,
+// so a demo/sandbox link never touches the real Thornton tour's live row. No param = the real link,
+// unchanged. First visit to a new client id auto-creates its own row — no manual SQL needed.
+const CLIENT_ID = new URLSearchParams(location.search).get('client') || 'thornton-tour';
+const IS_DEMO = CLIENT_ID !== 'thornton-tour';
+const ROW_ID = CLIENT_ID;
+const DB_KEY = 'opulent_buyer_app_v2_' + CLIENT_ID; // used only as an offline fallback cache, namespaced per client
 
 let sb = null;
 try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }catch(e){ console.warn('Supabase client failed to init', e); }
 
 let syncStatus = 'connecting'; // connecting | live | offline
 
+// Generic, clearly-fake placeholder tour used by any ?client=<id> other than the real Thornton link —
+// safe to click around, reset, or show to someone without touching real client data.
+function seedDemoDB(){
+  const now = new Date();
+  const t = (mins)=> new Date(now.getTime() + mins*60000).toISOString();
+  return {
+    profile:{
+      buyerName:'Demo Buyer', buyerEmail:'demo.buyer@example.com', buyerPhone:'555-0100',
+      partnerName:'Demo Partner', partnerEmail:'demo.partner@example.com', partnerPhone:'555-0101',
+      agentName:'Keenan D. Washington, Sr.', agentEmail:'kdwmba@gmail.com'
+    },
+    financing:{ loanType:'', downPaymentPct:null, interestRate:null, loanTermYears:30 },
+    properties: [
+      {
+        id:'d1', address:'123 Maple Street (Sample)', city:'Sample City, PA 19000', price:450000, beds:3, baths:2, sqft:1800, mls:'DEMO-001', annualTax:6000,
+        priorPrice:null, priceAsOf:'', dataAsOf:'',
+        showingDate:t(30), durationMinutes:15, checkedIn:false,
+        photos:[], subScores:{}, ratings:{}, prosCons:[], voiceNotes:[],
+        favorite:false, rank:null, videoLink:'', guests:[],
+        offerStatus:null, offerHistory:[], offerTerms:{}, documents:[], agentNotes:'', sharedWithAgent:false
+      },
+      {
+        id:'d2', address:'456 Oak Avenue (Sample)', city:'Sample City, PA 19000', price:525000, beds:4, baths:2.5, sqft:2200, mls:'DEMO-002', annualTax:7200,
+        priorPrice:null, priceAsOf:'', dataAsOf:'',
+        showingDate:t(75), durationMinutes:15, checkedIn:false,
+        photos:[], subScores:{}, ratings:{}, prosCons:[], voiceNotes:[],
+        favorite:false, rank:null, videoLink:'', guests:[],
+        offerStatus:null, offerHistory:[], offerTerms:{}, documents:[], agentNotes:'', sharedWithAgent:false
+      },
+      {
+        id:'d3', address:'789 Pine Court (Sample)', city:'Sample City, PA 19000', price:399000, beds:3, baths:1.5, sqft:1500, mls:'DEMO-003', annualTax:5400,
+        priorPrice:null, priceAsOf:'', dataAsOf:'',
+        showingDate:t(120), durationMinutes:15, checkedIn:false,
+        photos:[], subScores:{}, ratings:{}, prosCons:[], voiceNotes:[],
+        favorite:false, rank:null, videoLink:'', guests:[],
+        offerStatus:null, offerHistory:[], offerTerms:{}, documents:[], agentNotes:'', sharedWithAgent:false
+      }
+    ]
+  };
+}
+
 function seedDB(){
+  if(IS_DEMO) return seedDemoDB();
   const seed = {
     // NOTE: no client PII is hardcoded here on purpose — this file is publicly hosted.
     // Real buyer/partner contact info is seeded directly into Supabase (see setup SQL) and
@@ -473,8 +520,8 @@ function initGuestModeFromURL(){
   const params = new URLSearchParams(location.search);
   if(params.get('guest') !== '1') return;
   state.guestMode = true;
-  state.guestShowingId = params.get('showing') || localStorage.getItem('guestShowingId') || null;
-  state.guestId = localStorage.getItem('guestId') || null;
+  state.guestShowingId = params.get('showing') || localStorage.getItem('guestShowingId_'+CLIENT_ID) || null;
+  state.guestId = localStorage.getItem('guestId_'+CLIENT_ID) || null;
 }
 
 document.querySelectorAll('.bottomnav button').forEach(btn=>{
@@ -714,6 +761,9 @@ function render(){
 
   const main = document.getElementById('main');
   main.innerHTML = '';
+  if(IS_DEMO){
+    main.appendChild(el(`<div class="banner-share" style="background:#3a2e00;border:1px solid #7a5c00;color:#e0b34d;">🧪 DEMO MODE — sample placeholder data only. Nothing here is a real client and nothing syncs with any real tour.</div>`));
+  }
   const renderers = { dashboard:renderDashboard, schedule:renderSchedule, favorites:renderFavorites, compare:renderCompare, agent:renderAgent, home:renderHome };
   (renderers[state.view]||renderDashboard)(main);
   updateAllTimerBadges();
@@ -1604,7 +1654,8 @@ function renderAgent(main){
 /* ============ VIRTUAL TOUR: REMOTE GUESTS ============ */
 function guestInviteLink(p){
   const base = location.origin + location.pathname;
-  return `${base}?guest=1&showing=${p.id}`;
+  const clientParam = IS_DEMO ? `&client=${encodeURIComponent(CLIENT_ID)}` : '';
+  return `${base}?guest=1&showing=${p.id}${clientParam}`;
 }
 function copyGuestInvite(id){
   const p = getProp(id);
@@ -1714,8 +1765,8 @@ function submitGuestJoin(){
   save();
   state.guestId = id;
   state.guestShowingId = propId;
-  localStorage.setItem('guestId', id);
-  localStorage.setItem('guestShowingId', propId);
+  localStorage.setItem('guestId_'+CLIENT_ID, id);
+  localStorage.setItem('guestShowingId_'+CLIENT_ID, propId);
   render();
 }
 function renderGuestJoinStep(main){
