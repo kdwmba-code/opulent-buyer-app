@@ -1100,27 +1100,44 @@ function renderHome(main){
     </div>
   `));
 
-  // Pros/Cons
-  main.appendChild(el(`
+  // Pros/Cons — pro and con chip-pickers and the saved list are each split into their own
+  // clearly labeled group so pros and cons never blur together in one mixed row.
+  main.appendChild(el((()=>{
+    const indexed = p.prosCons.map((pc,i)=>({ ...pc, i }));
+    const prosList = indexed.filter(x=>x.type==='pro');
+    const consList = indexed.filter(x=>x.type==='con');
+    const pillsHTML = list => list.length
+      ? list.map(x=>`<span class="pill ${x.type}">${x.text} <span data-rm="${x.i}" style="cursor:pointer;">✕</span></span>`).join('')
+      : `<div class="muted" style="font-size:12px;">None added yet.</div>`;
+    return `
     <div class="card">
       <h3>Pros & Cons</h3>
-      <div class="muted" style="margin-bottom:6px;">Tap to add, or type your own below.</div>
-      <div style="margin-bottom:10px;">
+      <div class="muted" style="margin-bottom:10px;">Tap to add, or type your own below.</div>
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.5px;color:var(--green);margin-bottom:5px;">✓ PROS</div>
+      <div style="margin-bottom:14px;">
         ${PRO_CHIPS.map(c=>`<span class="chip pro-chip ${p.prosCons.some(pc=>pc.type==='pro'&&pc.text===c)?'selected':''}" data-text="${c}">${c}</span>`).join('')}
       </div>
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.5px;color:var(--danger);margin-bottom:5px;">✕ CONS</div>
       <div>
         ${CON_CHIPS.map(c=>`<span class="chip con-chip ${p.prosCons.some(pc=>pc.type==='con'&&pc.text===c)?'selected':''}" data-text="${c}">${c}</span>`).join('')}
       </div>
+
       <div class="row" style="margin-top:10px;">
         <input id="customTag" placeholder="Add your own...">
-        <button class="btn small" id="addPro" style="flex:0 0 70px;">Pro</button>
-        <button class="btn small danger" id="addCon" style="flex:0 0 70px;">Con</button>
+        <button class="btn small" id="addPro" style="flex:0 0 70px;">+ Pro</button>
+        <button class="btn small danger" id="addCon" style="flex:0 0 70px;">+ Con</button>
       </div>
-      <div style="margin-top:8px;">
-        ${p.prosCons.map((pc,i)=>`<span class="pill ${pc.type}">${pc.text} <span data-rm="${i}" style="cursor:pointer;">✕</span></span>`).join('')}
+
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1e1e1e;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.5px;color:var(--green);margin-bottom:6px;">✓ PROS (${prosList.length})</div>
+        <div style="margin-bottom:12px;">${pillsHTML(prosList)}</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.5px;color:var(--danger);margin-bottom:6px;">✕ CONS (${consList.length})</div>
+        <div>${pillsHTML(consList)}</div>
       </div>
-    </div>
-  `));
+    </div>`;
+  })()));
 
   // Voice notes
   main.appendChild(el(`
