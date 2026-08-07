@@ -289,6 +289,7 @@
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <button class="backbtn" id="backBtn" style="display:none">← Back</button>
+      <button class="backbtn" id="newClientBtn" style="display:none;border-color:var(--green-dim);color:var(--green);">+ New Client</button>
       <button class="backbtn" id="agentModeBtn" style="border-color:#333;">Agent Mode: Off</button>
     </div>
   </header>
@@ -313,7 +314,8 @@ const SUPABASE_KEY = 'sb_publishable_pFtPwv81osfU119QgAJnPQ_0mwkEH85';
 // so a demo/sandbox link never touches the real Thornton tour's live row. No param = the real link,
 // unchanged. First visit to a new client id auto-creates its own row — no manual SQL needed.
 const CLIENT_ID = new URLSearchParams(location.search).get('client') || 'thornton-tour';
-const IS_DEMO = CLIENT_ID !== 'thornton-tour';
+const IS_DEMO = CLIENT_ID === 'demo';
+const IS_CUSTOM_CLIENT = CLIENT_ID !== 'thornton-tour' && CLIENT_ID !== 'demo'; // a real client created via "+ New Client"
 const ROW_ID = CLIENT_ID;
 const DB_KEY = 'opulent_buyer_app_v2_' + CLIENT_ID; // used only as an offline fallback cache, namespaced per client
 
@@ -363,8 +365,32 @@ function seedDemoDB(){
   };
 }
 
+// A brand-new client created via "+ New Client" — starts with no properties (the agent adds them
+// via the existing "+" Add Showing flow) and picks up whatever intake info was entered in that
+// modal, handed off through sessionStorage across the redirect so it never sits in the URL.
+function seedNewClientDB(){
+  let profile = {
+    buyerName:'', buyerEmail:'', buyerPhone:'',
+    partnerName:'', partnerEmail:'', partnerPhone:'',
+    agentName:'Keenan D. Washington, Sr.', agentEmail:'kdwmba@gmail.com'
+  };
+  try{
+    const pending = JSON.parse(sessionStorage.getItem('pendingNewClientIntake')||'null');
+    if(pending && pending.slug === CLIENT_ID){
+      profile = { ...profile, ...pending.profile };
+      sessionStorage.removeItem('pendingNewClientIntake');
+    }
+  }catch(e){ console.warn('Could not read pending new-client intake', e); }
+  return {
+    profile,
+    financing:{ loanType:'', downPaymentPct:null, interestRate:null, loanTermYears:30 },
+    properties: []
+  };
+}
+
 function seedDB(){
   if(IS_DEMO) return seedDemoDB();
+  if(IS_CUSTOM_CLIENT) return seedNewClientDB();
   const seed = {
     // NOTE: no client PII is hardcoded here on purpose — this file is publicly hosted.
     // Real buyer/partner contact info is seeded directly into Supabase (see setup SQL) and
@@ -532,6 +558,44 @@ document.getElementById('agentModeBtn').addEventListener('click', ()=>{
   state.agentMode = !state.agentMode;
   render();
 });
+document.getElementById('newClientBtn').addEventListener('click', openNewClientModal);
+
+function slugify(name){
+  return (name||'client').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'client';
+}
+// Self-serve client creation: an agent fills this in once, we generate a fresh isolated ?client=
+// link (own Supabase row, own local cache, own guest-invite scope — same pattern as the demo
+// sandbox) and hand them straight off to it. No code edits or manual SQL needed per client anymore.
+function openNewClientModal(){
+  openModal(`
+    <button class="closex" onclick="closeModal()">✕</button>
+    <h3>Start a New Client</h3>
+    <div class="muted" style="margin-bottom:10px;">Creates a brand-new tour link for this client, completely separate from every other client's data. You'll be taken straight to it — add their first showing from the schedule's + button once you're there.</div>
+    <label>Client / Family Name</label><input id="ncName" placeholder="e.g. Thornton">
+    <label>Buyer Name</label><input id="ncBuyerName" placeholder="Full name">
+    <label>Buyer Email</label><input id="ncBuyerEmail" placeholder="name@email.com">
+    <label>Buyer Phone</label><input id="ncBuyerPhone" placeholder="555-555-5555">
+    <label>Partner Name (optional)</label><input id="ncPartnerName" placeholder="Full name">
+    <label>Partner Email (optional)</label><input id="ncPartnerEmail" placeholder="name@email.com">
+    <label>Partner Phone (optional)</label><input id="ncPartnerPhone" placeholder="555-555-5555">
+    <button class="btn" id="ncCreate" style="margin-top:10px;">Create Client & Go to Their Tour</button>
+  `);
+  document.getElementById('ncCreate').addEventListener('click', ()=>{
+    const name = document.getElementById('ncName').value.trim();
+    if(!name){ alert('Client/family name is required'); return; }
+    const slug = slugify(name) + '-' + Math.random().toString(36).slice(2,6);
+    const profile = {
+      buyerName: document.getElementById('ncBuyerName').value.trim(),
+      buyerEmail: document.getElementById('ncBuyerEmail').value.trim(),
+      buyerPhone: document.getElementById('ncBuyerPhone').value.trim(),
+      partnerName: document.getElementById('ncPartnerName').value.trim(),
+      partnerEmail: document.getElementById('ncPartnerEmail').value.trim(),
+      partnerPhone: document.getElementById('ncPartnerPhone').value.trim(),
+    };
+    sessionStorage.setItem('pendingNewClientIntake', JSON.stringify({ slug, profile }));
+    location.href = location.origin + location.pathname + '?client=' + encodeURIComponent(slug);
+  });
+}
 
 /* ============ HELPERS ============ */
 function fmtPrice(n){ return n ? '$'+n.toLocaleString() : '—'; }
@@ -755,6 +819,7 @@ function render(){
   agentBtn.style.color = state.agentMode ? '#06210f' : 'var(--white)';
   agentBtn.style.borderColor = state.agentMode ? 'var(--green)' : '#333';
   agentBtn.style.fontWeight = state.agentMode ? '700' : '400';
+  document.getElementById('newClientBtn').style.display = state.agentMode ? 'block' : 'none';
 
   const titles = {dashboard:'Dashboard', schedule:'Tour Schedule', favorites:'Favorites', compare:'Compare Homes', agent:'Agent Share', home:'Home Detail'};
   document.getElementById('pageTitle').textContent = titles[state.view] || 'Opulent Buyer Journey';
