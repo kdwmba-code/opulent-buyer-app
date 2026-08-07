@@ -1164,24 +1164,32 @@ function renderHome(main){
     </div>
   `));
 
-  // Offer status
+  // Offer status — a single, unambiguous "select this home for an offer" action starts things
+  // off, separate from the multi-stage progress tracker that only appears once an offer exists.
   const stages = ['Interested','Offer Drafted','Offer Submitted','Countered','Accepted'];
   const curIdx = p.offerStatus ? stages.indexOf(p.offerStatus) : -1;
+  const isAccepted = p.offerStatus === 'Accepted';
+  const nextStage = curIdx>-1 ? stages[Math.min(curIdx+1, stages.length-1)] : null;
   main.appendChild(el(`
-    <div class="card">
-      <h3>Offer Status</h3>
-      <div class="status-track">
-        ${stages.map((s,i)=>`<div class="seg ${i<curIdx?'done':''} ${i===curIdx?'current':''}"></div>`).join('')}
-      </div>
-      <div class="muted">${p.offerStatus || 'No offer activity yet'}</div>
-      ${p.offerTerms && p.offerTerms.price ? `
-        <div class="grid2" style="margin-top:10px;">
-          <div><div class="muted">Offer price</div><div>${fmtPrice(p.offerTerms.price)}</div></div>
-          <div><div class="muted">Close date</div><div>${p.offerTerms.closeDate||'—'}</div></div>
-          <div><div class="muted">Earnest money</div><div>${fmtPrice(p.offerTerms.earnest)}</div></div>
-          <div><div class="muted">Contingencies</div><div>${p.offerTerms.contingencies||'—'}</div></div>
-        </div>` : ''}
-      <button class="btn secondary" id="advanceOffer" style="margin-top:10px;">${p.offerStatus ? 'Advance Status →' : 'Mark as Interested'}</button>
+    <div class="card" style="${!p.offerStatus ? 'border-color:var(--green-dim);' : ''}">
+      <h3>Offer</h3>
+      ${!p.offerStatus ? `
+        <div class="muted" style="margin-bottom:10px;">No offer started on this home yet.</div>
+        <button class="btn" id="selectForOffer">📝 Select This Home for an Offer</button>
+      ` : `
+        <div class="status-track">
+          ${stages.map((s,i)=>`<div class="seg ${i<curIdx?'done':''} ${i===curIdx?'current':''}"></div>`).join('')}
+        </div>
+        <div style="font-weight:700;margin-top:6px;">${isAccepted ? '🎉 Offer Accepted' : p.offerStatus}</div>
+        ${p.offerTerms && p.offerTerms.price ? `
+          <div class="grid2" style="margin-top:10px;">
+            <div><div class="muted">Offer price</div><div>${fmtPrice(p.offerTerms.price)}</div></div>
+            <div><div class="muted">Close date</div><div>${p.offerTerms.closeDate||'—'}</div></div>
+            <div><div class="muted">Earnest money</div><div>${fmtPrice(p.offerTerms.earnest)}</div></div>
+            <div><div class="muted">Contingencies</div><div>${p.offerTerms.contingencies||'—'}</div></div>
+          </div>` : ''}
+        ${!isAccepted ? `<button class="btn secondary" id="advanceOffer" style="margin-top:10px;">Advance to ${nextStage} →</button>` : ''}
+      `}
     </div>
   `));
 
@@ -1349,13 +1357,19 @@ function bindHomeEvents(main, p){
   });
 
   // offer
+  const stages = ['Interested','Offer Drafted','Offer Submitted','Countered','Accepted'];
+  const selectForOfferBtn = main.querySelector('#selectForOffer');
+  if(selectForOfferBtn){
+    selectForOfferBtn.addEventListener('click', ()=>{
+      p.offerStatus = 'Offer Drafted';
+      p.offerHistory.push('Interested', 'Offer Drafted');
+      save(); render();
+    });
+  }
   const advanceBtn = main.querySelector('#advanceOffer');
   if(advanceBtn){
-    const stages = ['Interested','Offer Drafted','Offer Submitted','Countered','Accepted'];
     advanceBtn.addEventListener('click', ()=>{
-      if(!p.offerStatus){
-        p.offerStatus = 'Interested'; p.offerHistory.push('Interested');
-      } else if(p.offerStatus==='Offer Drafted'){
+      if(p.offerStatus==='Offer Drafted'){
         openModal(`
           <button class="closex" onclick="closeModal()">✕</button>
           <h3>Offer Terms</h3>
