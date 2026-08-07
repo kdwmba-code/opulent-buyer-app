@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Start Your Home Search — Opulent Realty Group</title>
+<style>
+  :root{
+    --black:#0a0a0a;
+    --green:#2BBE6E;
+    --green-dim:#1e8f52;
+    --white:#ffffff;
+    --grey:#9a9a9a;
+    --card:#161616;
+    --danger:#e05252;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--black);
+    color:var(--white);
+    font-family:'Josefin Sans','Space Grotesk',Segoe UI,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.brand{
+    font-family:'Cinzel',Georgia,serif;
+    letter-spacing:0.5px;
+  }
+  #wrap{
+    max-width:560px;
+    margin:0 auto;
+    min-height:100vh;
+    padding:28px 20px 60px;
+  }
+  .brand{
+    color:var(--green);
+    font-size:14px;
+    text-transform:uppercase;
+    text-align:center;
+    margin-bottom:6px;
+  }
+  h1{
+    font-size:26px;
+    text-align:center;
+    margin:0 0 8px;
+  }
+  .sub{
+    color:var(--grey);
+    text-align:center;
+    font-size:14px;
+    margin-bottom:28px;
+    line-height:1.5;
+  }
+  .card{
+    background:var(--card);
+    border:1px solid #262626;
+    border-radius:14px;
+    padding:20px;
+    margin-bottom:16px;
+  }
+  .card h3{margin:0 0 4px;font-size:15px;}
+  .sectionLabel{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.5px;
+    color:var(--green);
+    margin:16px 0 6px;
+  }
+  .sectionLabel:first-child{margin-top:0;}
+  label{font-size:12px;color:var(--grey);display:block;margin-bottom:4px;}
+  input,textarea{
+    width:100%;
+    background:#0f0f0f;
+    border:1px solid #2a2a2a;
+    color:var(--white);
+    border-radius:8px;
+    padding:11px;
+    font-size:14px;
+    font-family:'Josefin Sans',sans-serif;
+    margin-bottom:12px;
+  }
+  input:focus,textarea:focus{outline:1px solid var(--green-dim);}
+  .row{display:flex;gap:10px;}
+  .row > *{flex:1;}
+  .checkRow{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:14px;}
+  .checkRow input{width:auto;margin:0;}
+  .btn{
+    background:var(--green);
+    color:#06210f;
+    border:none;
+    border-radius:10px;
+    padding:14px;
+    font-weight:700;
+    font-size:15px;
+    cursor:pointer;
+    font-family:'Josefin Sans',sans-serif;
+    width:100%;
+    margin-top:6px;
+  }
+  .btn:disabled{opacity:0.6;cursor:default;}
+  .err{color:var(--danger);font-size:13px;margin-top:8px;display:none;}
+  .required{color:var(--green);}
+  #successState{display:none;text-align:center;padding:40px 10px;}
+  #successState .ic{font-size:44px;margin-bottom:12px;}
+  #successState h2{margin:0 0 10px;}
+  #successState p{color:var(--grey);line-height:1.6;}
+  footer{text-align:center;color:#555;font-size:11px;margin-top:30px;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="brand">OPULENT REALTY GROUP</div>
+  <h1>Start Your Home Search</h1>
+  <div class="sub">Tell us a bit about what you're looking for and one of our agents will reach out to get your search started.</div>
+
+  <form id="intakeForm">
+    <div class="card">
+      <div class="sectionLabel">YOUR CONTACT INFO</div>
+      <label>Your Name <span class="required">*</span></label>
+      <input id="buyerName" required placeholder="Full name">
+      <label>Email <span class="required">*</span></label>
+      <input id="buyerEmail" type="email" required placeholder="name@email.com">
+      <label>Phone <span class="required">*</span></label>
+      <input id="buyerPhone" required placeholder="555-555-5555">
+
+      <div class="sectionLabel">CO-BUYER (OPTIONAL)</div>
+      <label>Partner / Co-Buyer Name</label>
+      <input id="partnerName" placeholder="Full name">
+      <div class="row">
+        <div><label>Partner Email</label><input id="partnerEmail" type="email" placeholder="name@email.com"></div>
+        <div><label>Partner Phone</label><input id="partnerPhone" placeholder="555-555-5555"></div>
+      </div>
+
+      <div class="sectionLabel">WHAT ARE YOU LOOKING FOR?</div>
+      <label>Target Area <span class="required">*</span></label>
+      <input id="targetArea" required placeholder="e.g. Wilmington, DE or New Castle County, DE">
+      <label>Max Budget</label>
+      <input id="budgetMax" type="number" placeholder="450000">
+      <div class="row">
+        <div><label>Min Bedrooms</label><input id="minBeds" type="number" placeholder="3"></div>
+        <div><label>Min Bathrooms</label><input id="minBaths" type="number" placeholder="2"></div>
+        <div><label>Min Sqft</label><input id="minSqft" type="number" placeholder="1600"></div>
+      </div>
+      <div class="checkRow"><input id="needsYard" type="checkbox"><label style="margin:0;">Needs a yard</label></div>
+      <div class="checkRow"><input id="needsParking" type="checkbox"><label style="margin:0;">Needs dedicated parking</label></div>
+      <label>Anything else we should know?</label>
+      <textarea id="notes" rows="3" placeholder="e.g. good schools, home office, timeline, must-haves..."></textarea>
+
+      <button type="submit" class="btn" id="submitBtn">Submit My Info</button>
+      <div class="err" id="errMsg">Something went wrong submitting your info. Please try again, or call us at 267-673-5246.</div>
+    </div>
+  </form>
+
+  <div id="successState">
+    <div class="ic">✅</div>
+    <h2>Thanks — you're all set!</h2>
+    <p>We've received your info. One of our Opulent Realty Group agents will reach out shortly to get your search started.</p>
+  </div>
+
+  <footer>Opulent Realty Group · 267-673-5246 · info@orgrealty.com</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+const SUPABASE_URL = 'https://oiszuqcimrciypmuzkdt.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_pFtPwv81osfU119QgAJnPQ_0mwkEH85';
+let sb = null;
+try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }catch(e){ console.warn('Supabase client failed to init', e); }
+
+function slugify(name){
+  return (name||'client').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'client';
+}
+
+const form = document.getElementById('intakeForm');
+const submitBtn = document.getElementById('submitBtn');
+const errMsg = document.getElementById('errMsg');
+
+form.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  errMsg.style.display = 'none';
+
+  const buyerName = document.getElementById('buyerName').value.trim();
+  const buyerEmail = document.getElementById('buyerEmail').value.trim();
+  const buyerPhone = document.getElementById('buyerPhone').value.trim();
+  const targetArea = document.getElementById('targetArea').value.trim();
+  if(!buyerName || !buyerEmail || !buyerPhone || !targetArea){
+    errMsg.textContent = 'Please fill in your name, email, phone, and target area.';
+    errMsg.style.display = 'block';
+    return;
+  }
+
+  const profile = {
+    buyerName, buyerEmail, buyerPhone,
+    partnerName: document.getElementById('partnerName').value.trim(),
+    partnerEmail: document.getElementById('partnerEmail').value.trim(),
+    partnerPhone: document.getElementById('partnerPhone').value.trim(),
+    agentName: 'Keenan D. Washington, Sr.', agentEmail: 'kdwmba@gmail.com'
+  };
+  const intake = {
+    targetArea,
+    budgetMax: Number(document.getElementById('budgetMax').value)||null,
+    minBeds: Number(document.getElementById('minBeds').value)||null,
+    minBaths: Number(document.getElementById('minBaths').value)||null,
+    minSqft: Number(document.getElementById('minSqft').value)||null,
+    needsYard: document.getElementById('needsYard').checked,
+    needsParking: document.getElementById('needsParking').checked,
+    notes: document.getElementById('notes').value.trim(),
+  };
+
+  const slug = 'lead-' + slugify(buyerName) + '-' + Math.random().toString(36).slice(2,6);
+  const data = {
+    profile, intake,
+    financing:{ loanType:'', downPaymentPct:null, interestRate:null, loanTermYears:30 },
+    properties: [],
+    isLead: true,
+    leadStatus: 'new',
+    leadSubmittedAt: new Date().toISOString()
+  };
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Submitting…';
+
+  try{
+    if(!sb) throw new Error('Supabase unavailable');
+    const { error } = await sb.from('buyer_app_state').insert({ id: slug, data });
+    if(error) throw error;
+    form.style.display = 'none';
+    document.getElementById('successState').style.display = 'block';
+  } catch(err){
+    console.warn('Lead submit failed', err);
+    errMsg.textContent = 'Something went wrong submitting your info. Please try again, or call us at 267-673-5246.';
+    errMsg.style.display = 'block';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit My Info';
+  }
+});
+</script>
+</body>
+</html>
