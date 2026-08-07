@@ -1015,6 +1015,7 @@ function renderHome(main){
           <div class="muted">MLS# ${p.mls||'—'} · ${fmtShowing(p)} ${p.cancelled?'· <span style="color:var(--danger)">Cancelled</span>':''}</div>
           ${timerBadgeHTML(p)}
           ${dataAsOfHTML(p)}
+          ${groupRatingHTML(p)}
         </div>
         <div class="score-badge ${p.ratings.primary?'':'empty'}" style="${p.ratings.primary?`background:${scoreColor(p.ratings.primary)};color:#06210f;`:''}">${p.ratings.primary||'–'}</div>
       </div>
@@ -1462,9 +1463,7 @@ function renderCompare(main){
         <div class="lbl">Price</div><div class="val">${fmtPrice(p.price)}${priceChangeHTML(p)}</div>
         <div class="lbl">Est. Monthly Cost</div><div class="val" style="color:var(--green);">${estimateMonthly(p) ? '~'+fmtMonthly(estimateMonthly(p).total)+'/mo' : 'Set financing info'}</div>
         <div class="lbl"></div><div class="val">${dataAsOfHTML(p)}</div>
-        <div class="lbl">Your rating</div><div class="val">${p.ratings.primary?p.ratings.primary+'/10':'—'}</div>
-        <div class="lbl">${DB.profile.partnerName}'s rating</div><div class="val">${p.ratings.partner?p.ratings.partner+'/10':'—'}</div>
-        ${(p.guests||[]).map(g=>`<div class="lbl">${g.name}'s rating</div><div class="val">${g.rating?g.rating+'/10':'—'}</div>`).join('')}
+        <div class="lbl">Group Rating</div><div class="val">${groupRatingHTML(p) || '—'}</div>
         <div class="lbl">Beds/Baths</div><div class="val">${p.beds||'–'}bd / ${p.baths||'–'}ba</div>
         <div class="lbl">Sqft</div><div class="val">${p.sqft?p.sqft.toLocaleString():'–'}</div>
         <div class="lbl">Pros</div><div class="val">${p.prosCons.filter(x=>x.type==='pro').map(x=>x.text).join(', ')||'—'}</div>
@@ -1608,13 +1607,38 @@ function openSetVideoLink(id){
   });
 }
 // "Remote Guests" card shown on Home Detail — invite link, video link, and each joined guest's rating.
+// Every scored voice on a home — buyer, partner, and any remote guests — combined into one
+// average with a tap-to-expand breakdown of who scored what.
+function ratingBreakdown(p){
+  const rows = [];
+  if(p.ratings.primary!=null) rows.push({ name: DB.profile.buyerName || 'You', score: p.ratings.primary });
+  if(p.ratings.partner!=null) rows.push({ name: DB.profile.partnerName || 'Partner', score: p.ratings.partner });
+  (p.guests||[]).forEach(g=>{ if(g.rating!=null) rows.push({ name: g.name, score: g.rating }); });
+  return rows;
+}
+function groupAverage(p){
+  const rows = ratingBreakdown(p);
+  if(!rows.length) return null;
+  return Math.round((rows.reduce((s,r)=>s+r.score,0)/rows.length)*10)/10;
+}
+function groupRatingHTML(p){
+  const rows = ratingBreakdown(p);
+  if(!rows.length) return '';
+  const avg = groupAverage(p);
+  return `<details style="margin-top:6px;">
+    <summary style="cursor:pointer;font-size:13px;font-weight:700;color:${scoreColor(avg)};">Group Rating: ${avg}/10 (${rows.length} score${rows.length>1?'s':''}) — tap to see who scored what</summary>
+    <div style="margin-top:6px;">
+      ${rows.map(r=>`<div class="row" style="justify-content:space-between;padding:3px 0;"><div class="muted">${r.name}</div><div style="font-weight:600;">${r.score}/10</div></div>`).join('')}
+    </div>
+  </details>`;
+}
 function remoteGuestsCardHTML(p){
   const guests = p.guests || [];
   return `<div class="card">
     <h3 style="margin:0 0 6px;">Remote Guests (${guests.length}/4)</h3>
-    <div class="muted" style="margin-bottom:10px;">Invite up to 4 people to join this showing live and share their own rating — great for a spouse, parent, or friend who couldn't be here in person.</div>
+    <div class="muted" style="margin-bottom:10px;">Invite up to 4 people to join this showing live and share their own rating — great for a spouse, parent, or friend who couldn't be here in person. Capped at 4 so the group stays manageable.</div>
     <div class="row" style="gap:8px;flex-wrap:wrap;">
-      <button class="btn small ghost" id="copyGuestInviteBtn">🔗 Copy Guest Invite Link</button>
+      <button class="btn small ghost" id="copyGuestInviteBtn" ${guests.length>=4?'disabled':''}>🔗 Copy Guest Invite Link</button>
       <button class="btn small ghost" id="setVideoLinkBtn">${p.videoLink ? '🎥 Edit Video Link' : '🎥 Set Video Call Link'}</button>
       ${p.videoLink ? `<a class="btn small" href="${p.videoLink}" target="_blank">▶ Join Video</a>` : ''}
     </div>
@@ -1623,7 +1647,7 @@ function remoteGuestsCardHTML(p){
         ${guests.map(g=>`
           <div class="row" style="justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1e1e1e;">
             <div>${g.name}</div>
-            <div class="score-badge ${g.rating?'':'empty'}" style="${g.rating?`background:${scoreColor(g.rating)};color:#06210f;`:''}">${g.rating||'–'}</div>
+            <div class="muted" style="font-size:12px;">${g.rating!=null ? 'Rated ✓' : 'Joined — no rating yet'}</div>
           </div>
         `).join('')}
       </div>
